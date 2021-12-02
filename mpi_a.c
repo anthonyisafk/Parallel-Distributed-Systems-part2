@@ -24,9 +24,8 @@
 
 #include "headers/point.h"
 
-#define DIMS 5
-#define PROCS 10
-#define POINTS_NUM 10
+#define DIMS 3
+#define POINTS_NUM 5
 
 
 // Calculates the distance of p from a reference point.
@@ -114,22 +113,44 @@ float quickselect(float *distances, uint end) {
 
 
 int main(int argc, char **argv) {
+  	int PROCS = atoi(argv[1]);
+
 	float *ref_point = (float *) malloc(DIMS * sizeof(float));
 	point reference = {DIMS, ref_point};
+
+	printf("\nInitialized the reference point\n");
 
 	point **points = (point **) malloc(PROCS * sizeof(point *));
 	for (int i = 0; i < PROCS; i++) {
 		points[i] = (point *) malloc(POINTS_NUM * sizeof(reference));
+		for (int j = 0; j < POINTS_NUM; j++) {
+			points[i][j].coord = (float *) malloc(DIMS * sizeof(float)); 
+		}
 	}
 
-	// for (int i = 0; i < PROCS; i++) {
-	// 	for (int j = 0; j < POINTS_NUM; j++) {
-	// 		points[i][j] = random()
+	printf("\nInitialized point*\n");
 
+	for (int i = 0; i < PROCS; i++) {
+		for (int j = 0; j < POINTS_NUM; j++) {
+			for (int k = 0; k < DIMS; k++) {
+	  			points[i][j].coord[k] = (float)rand() / ((float)RAND_MAX);
+			}
+		}
+	}
+	printf("\nInitialized points**\n");
 
-
-	// 	}
-	// }
+	for (int i = 0; i < PROCS; i++) {
+		printf("Process #%d\n", i);
+		for (int j = 0; j < POINTS_NUM; j++) {
+			printf("P%d: [", j);
+			for (int k = 0; k < DIMS; k++) {
+				printf("%f", points[i][j].coord[k]);
+				if (k != DIMS - 1) printf(", ");
+			}
+			printf("] ");
+		}
+		printf("\n");
+	}
 
 
 
