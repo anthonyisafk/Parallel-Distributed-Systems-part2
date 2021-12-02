@@ -20,8 +20,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mpi.h>
+#include <math.h>
 
 
+typedef struct point{
+	int size;
+	int *coordinates;
+}point;
+
+float euclDistance(point a, point b){
+	if(a.size != b.size) return -1;
+	float dist = 0;
+	
+	for(int i; i < a.size; i++){
+		dist+= (a.coordinates[i]-b.coordinates[i])*(a.coordinates[i]-b.coordinates[i]);
+	}
+	return sqrt(dist);
+}
 // Standard Lomuto partition function.
 // Taken from https://www.geeksforgeeks.org/quickselect-a-simple-iterative-implementation/
 uint partition(float *arr, uint low, uint high) {
@@ -93,6 +108,19 @@ int main(int argc, char **argv) {
 
 	float median = quickselect(array, 9);
 	printf("\n%f\n", median);
+	
+	point a, b;
+	a.size = 2;
+	a.coordinates = malloc(a.size*(sizeof(float)));
+	a.coordinates[0] = 2;
+	a.coordinates[1] = 2;
+
+	b.size = 2;
+	b.coordinates = malloc(a.size*(sizeof(float)));
+	b.coordinates[0] = 0;
+	b.coordinates[1] = 0;
+
+	printf("Distance between a and b is %f \n", euclDistance(a,b));
 
 	return 0;
 }
