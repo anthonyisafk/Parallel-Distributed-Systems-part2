@@ -25,7 +25,7 @@
 
 typedef struct point{
 	int size;
-	int *coordinates;
+	float *coordinates;
 }point;
 
 float euclDistance(point a, point b){
