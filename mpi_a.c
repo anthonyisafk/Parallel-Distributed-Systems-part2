@@ -1,5 +1,5 @@
 /**
- * @file: mpi.c
+ * @file: mpi_a.c
  * ******************** 
  * @authors: Antonios Antoniou, Polydoros Giannouris
  * @emails: aantonii@ece.auth.gr, polydoros@ece.auth.gr
@@ -21,138 +21,83 @@
 #include <stdlib.h>
 #include <mpi.h>
 #include <math.h>
+#include <time.h>
 
 #include "headers/point.h"
+#include "headers/helpers.h"
 
-#define DIMS 3
-#define POINTS_NUM 5
+void findMedian(){
+	
 
 
-// Calculates the distance of p from a reference point.
-float calculateDistance(point p, point ref) {
-	int dims_p = p.dims;
-	int dims_ref = ref.dims;
-
-	if (dims_ref != dims_p) {
-		printf("\nDon't know how to calculate distance between points of different dimensions.\n");
-		return -1;
-	}
-
-	float distance = 0;
-	for (int i = 0; i < dims_ref; i++) {
-		distance += pow(p.coord[i] - ref.coord[i], 2);
-	}
-
-	return distance;
-}
-
-// Standard Lomuto partition function.
-// Taken from https://www.geeksforgeeks.org/quickselect-a-simple-iterative-implementation/
-uint partition(float *arr, uint low, uint high) {
-	uint pivot = arr[high];
-
-	uint i = low - 1;
-	for (uint j = low; j <= high - 1; j++) {
-		if (arr[j] <= pivot) {
-			i++;
-
-			// Swap arr[i] and arr[j].
-			float tmp = arr[i];
-			arr[i] = arr[j];
-			arr[j] = tmp;
-		}
-	}
-
-	float tmp = arr[i + 1];
-	arr[i + 1] = arr[high];
-	arr[high] = tmp;
-
-	return i + 1;
 }
 
 
-// Finds the k-th smallest element of an array. Kept outside of quickselect,
-// since the distances array will probably consist of an even number of floats,
-// which means we need to find the semi-sum of the values in the middle.
-float kthSmallest(float *array, uint start, uint end, uint k) {
-	while (start <= end) {
-		uint pivotIndex = partition(array, start, end);
-
-		if (pivotIndex == k - 1) {
-			return array[pivotIndex];
-		} 
-		else if (pivotIndex > k - 1) {
-			end = pivotIndex - 1;
-		} else {
-			start = pivotIndex + 1;
-		}
-	}
-
-	// Return -1 if the function fails.
-	return -1;
-}
-
-
-// Finds the median in an array of distances.
-float quickselect(float *distances, uint end) {
-	// The index where the median is supposed to be.
-	uint mid_index = end / 2;
-	printf("MID INDEX = %d\n", mid_index);
-
-	// The median is calculated depending on whether the population is even or odd.
-	if ((end + 1) % 2 == 0) {
-		float mid1 = kthSmallest(distances, 0, end, mid_index + 1);
-		float mid2 = kthSmallest(distances, 0, end, mid_index + 2);
-
-		printf("mid1 = %f, mid2 = %f\n", mid1, mid2);
-		return (float) ((mid1 + mid2) / 2);
-	} else {
-		return kthSmallest(distances, 0, end, mid_index);
-	}
-}
 
 
 int main(int argc, char **argv) {
-  	int PROCS = atoi(argv[1]);
+	int DIMS = 2;
+	int POINTS_NUM = 3;
+  
+	int comm_size;
+	int comm_rank;
 
-	float *ref_point = (float *) malloc(DIMS * sizeof(float));
-	point reference = {DIMS, ref_point};
+	// --------------- START OF TESTING MPI --------------- //
+	MPI_Init(&argc, &argv);
 
-	printf("\nInitialized the reference point\n");
+	MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+	MPI_Comm_rank(MPI_COMM_WORLD, &comm_rank);
 
-	point **points = (point **) malloc(PROCS * sizeof(point *));
-	for (int i = 0; i < PROCS; i++) {
-		points[i] = (point *) malloc(POINTS_NUM * sizeof(reference));
-		for (int j = 0; j < POINTS_NUM; j++) {
-			points[i][j].coord = (float *) malloc(DIMS * sizeof(float)); 
+	float *pivotCoord = (float *)malloc(DIMS*sizeof(float));
+	point pivot = {DIMS, pivotCoord};
+
+	float *distances = (float *)malloc(POINTS_NUM*sizeof(float));
+
+	point *points = (point *) malloc(POINTS_NUM * sizeof(point));
+	for (int i = 0; i < POINTS_NUM; i++) {
+		points[i].coord = (float *) malloc(DIMS * sizeof(float)); 
+	}
+
+	time_t t;
+	srand((unsigned) time(&t));
+
+	for (int i = 0; i < POINTS_NUM; i++) {
+		points[i].dims = DIMS;
+		for (int j = 0; j < DIMS; j++) {
+			points[i].coord[j] = (comm_rank+0.5) * (float)rand() / ((float)RAND_MAX);
 		}
 	}
 
-	printf("\nInitialized point*\n");
+	printProcess(points, comm_rank, POINTS_NUM, DIMS);	
 
-	for (int i = 0; i < PROCS; i++) {
-		for (int j = 0; j < POINTS_NUM; j++) {
-			for (int k = 0; k < DIMS; k++) {
-	  			points[i][j].coord[k] = (float)rand() / ((float)RAND_MAX);
-			}
+	// The master picks a pivot, then broadcasts the index (for testing's sake)
+	// then copies the coordinates to the array it's going to broadcast.
+	if (comm_rank == 0) {
+		int pivotIndex = rand() % POINTS_NUM;
+
+		for (int i = 0; i < DIMS; i++) {
+			pivot.coord[i] = points[pivotIndex].coord[i];
+			printf("pivot.coord[%d] = %f\n", i, pivot.coord[i]);
 		}
 	}
-	printf("\nInitialized points**\n");
 
-	for (int i = 0; i < PROCS; i++) {
-		printf("Process #%d\n", i);
-		for (int j = 0; j < POINTS_NUM; j++) {
-			printf("P%d: [", j);
-			for (int k = 0; k < DIMS; k++) {
-				printf("%f", points[i][j].coord[k]);
-				if (k != DIMS - 1) printf(", ");
-			}
-			printf("] ");
-		}
-		printf("\n");
+	MPI_Bcast(pivotCoord, DIMS, MPI_FLOAT, 0, MPI_COMM_WORLD);
+
+	// For each point calculate distance from pivot
+	for(int i=0; i<POINTS_NUM; i++){
+		distances[i] = calculateDistancePoint(points[i], pivot);
 	}
 
+	// Print distance matrices
+	MPI_Barrier(MPI_COMM_WORLD);
+	for(int i=0; i<POINTS_NUM; i++){
+		printf("distances[%d] = %f\n", i, distances[i]);
+	}
 
+	//Call recursive equation
+
+
+	MPI_Finalize();
 
 	return 0;
 }
