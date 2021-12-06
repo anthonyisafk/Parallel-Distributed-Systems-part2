@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
 
     long *info = malloc(2 * sizeof(long));
     long dims, pointsNum;
-    double median;
+    float median;
     FILE *file;
     if (comm_rank == 0) {
         file = fopen("data/mnist.bin", "rb");
@@ -63,22 +63,22 @@ int main(int argc, char **argv) {
     dims = info[0];
     pointsNum = info[1];
 
-    double *points = malloc(dims * pointsNum * sizeof(double));
-    double *pivot = malloc(dims * sizeof(double));
+    float *points = malloc(dims * pointsNum * sizeof(float));
+    float *pivot = malloc(dims * sizeof(float));
     MPI_Barrier(MPI_COMM_WORLD);
 
     if (comm_rank == 0) {
         // Skip some elements to find some nonzero values.
-        for (int i = 0; i < 5000 ; i++) {
-            fread(points, sizeof(double), dims * pointsNum , file);
+        for (int i = 0; i < 1000 ; i++) {
+            fread(points, sizeof(float), dims * pointsNum , file);
         }
 
         for (int i = 0; i < comm_size; i++) {
-            fread(points, sizeof(double), dims * pointsNum , file);
-            MPI_Send(points, dims * pointsNum, MPI_DOUBLE, i, 101, MPI_COMM_WORLD);
+            fread(points, sizeof(float), dims * pointsNum , file);
+            MPI_Send(points, dims * pointsNum, MPI_FLOAT, i, 101, MPI_COMM_WORLD);
         }
     }
-    MPI_Recv(points, dims * pointsNum, MPI_DOUBLE, 0, 101, MPI_COMM_WORLD, &mpi_stat101);
+    MPI_Recv(points, dims * pointsNum, MPI_FLOAT, 0, 101, MPI_COMM_WORLD, &mpi_stat101);
 
     // Change rank to check validity of transfers 
     if (comm_rank == 0) {
@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
             pivot[i] = points[i + pivotIndex * dims];
 		}  
     }
-    MPI_Bcast(pivot, dims, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(pivot, dims, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
     // Uncomment to test pivot transfer
     if (comm_rank == 2) {
@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
     }
 
     //Calculate distances from pivot
-    double *distances = (double *) malloc(pointsNum * sizeof(double));
+    float *distances = (float *) malloc(pointsNum * sizeof(float));
     for (int i = 0; i < pointsNum; i++) {
         distances[i] = calculateDistanceArray(points, dims * i, pivot, dims);
     }
@@ -136,11 +136,11 @@ int main(int argc, char **argv) {
 
     // Initialize the array that will keep all the distances for the master to find the median.
     // It only needs to be initialized in the case of the master, to conserve memory.
-    double *dist_arr = NULL;
+    float *dist_arr = NULL;
     if (comm_rank == 0) {
-        dist_arr = malloc(pointsNum * comm_size * sizeof(double));
+        dist_arr = malloc(pointsNum * comm_size * sizeof(float));
     }
-    MPI_Gather(distances, pointsNum, MPI_DOUBLE, dist_arr, pointsNum, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Gather(distances, pointsNum, MPI_FLOAT, dist_arr, pointsNum, MPI_FLOAT, 0, MPI_COMM_WORLD);
     
     if (comm_rank == 0) {
         printf("\nProcess #0 has gathered the distances:\n");
@@ -153,7 +153,7 @@ int main(int argc, char **argv) {
         printf("\nMedian distance is %f\n", median);
     }
     // Broadcast median.
-    MPI_Bcast(&median, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&median, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
     MPI_Barrier(MPI_COMM_WORLD);
     printf("Process #%d says: median = %f\n", comm_rank, median);
