@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
     double median;
     FILE *file;
     if (comm_rank == 0) {
-        file = fopen("mnist.bin", "rb");
+        file = fopen("data/mnist.bin", "rb");
     }
 
     // Assign the info[] values to new variables to make the code more coherent.
@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
 
     if (comm_rank == 0) {
         // Skip some elements to find some nonzero values.
-        for (int i = 0; i < 5000 ; i++) {
+        for (int i = 0; i < 100 ; i++) {
             fread(points, sizeof(double), dims * pointsNum , file);
         }
 
@@ -113,13 +113,12 @@ int main(int argc, char **argv) {
     }
 
     //Calculate distances from pivot
-    double *distances = malloc(pointsNum*sizeof(double));
-        
-    for(int i = 0; i < pointsNum; i++){
-        distances[i] = calculateDistanceArray(points, dims*i, pivot, dims);
+    double *distances = (double *) malloc(pointsNum * sizeof(double));
+    for (int i = 0; i < pointsNum; i++) {
+        distances[i] = calculateDistanceArray(points, dims * i, pivot, dims);
     }
 
-    // Uncomment for distance arary of 0 
+    // Uncomment for distance array of 0 
     // Should be 0 at pivot index
     // First 7 points should always have the same value
     // if (comm_rank == 0) {
@@ -130,21 +129,29 @@ int main(int argc, char **argv) {
     //     printf("\n");
     // }
 
-    // Send distance array to master, calculate median and send it back
-    
-    if(comm_rank == 0){
-        double *dist_arr = malloc(pointsNum*comm_size*sizeof(double));
-        MPI_Gather(distances, pointsNum, MPI_DOUBLE, dist_arr, pointsNum, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-        
-        // Code from this point on should be moved to the recursive function
-        median = quickselect(dist_arr, pointsNum*comm_size-1);
-        printf("Median distance is %f\n", median);
-        free(dist_arr);
+    // Initialize the array that will keep all the distances for the master to find the median.
+    // It only needs to be initialized in the case of the master, to conserve memory.
+    double *dist_arr = NULL;
+    if (comm_rank == 0) {
+        dist_arr = malloc(pointsNum * comm_size * sizeof(double));
     }
-    else MPI_Gather(distances, pointsNum, MPI_DOUBLE, NULL, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Gather(distances, pointsNum, MPI_DOUBLE, dist_arr, pointsNum, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     
-    // Broadcast median
+    if (comm_rank == 0) {
+        printf("Process #0 has gathered the distances:\n");
+        for (int i = 0; i < pointsNum * comm_size; i++) {
+            printf("%f ", dist_arr[i]);
+        }
+        printf("\n");
+
+        median = quickselect(dist_arr, pointsNum*comm_size-1);
+        printf("\nMedian distance is %f\n", median);
+    }
+    // Broadcast median.
     MPI_Bcast(&median, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    printf("Process #%d says: median = %f\n", comm_rank, median);
 
 
 
