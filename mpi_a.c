@@ -32,7 +32,7 @@ void bcast_dims_points(FILE *file, long *info, int comm_rank, int comm_size) {
     if (comm_rank == 0) {
         fread(info, sizeof(long), 2, file);
         info[1] = 10; // set the points per process to 2.
-        info[0] = 10; // set the dimensions to 10.
+        info[0] = 15; // set the dimensions to 10.
     } 
 
 	MPI_Bcast(info, 2, MPI_LONG, 0, MPI_COMM_WORLD);
@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
 
     if (comm_rank == 0) {
         // Skip some elements to find some nonzero values.
-        for (int i = 0; i < 100 ; i++) {
+        for (int i = 0; i < 5000 ; i++) {
             fread(points, sizeof(double), dims * pointsNum , file);
         }
 
@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
         printf("P#%d GMTPS VALE TO ARISTERO LAY UP:\n", comm_rank);
         for (int i = 0; i < dims; i++) {
             pivot[i] = pivot[i];
-			printf("pivot[%d] = %1.3f\n", i, pivot[i]);
+			printf("pivot[%d] = %.3f\n", i, pivot[i]);
 		} 
         printf("\n");
     }
@@ -117,6 +117,11 @@ int main(int argc, char **argv) {
     for (int i = 0; i < pointsNum; i++) {
         distances[i] = calculateDistanceArray(points, dims * i, pivot, dims);
     }
+
+    for (int i = 0; i < pointsNum; i++) {
+        printf("D%d,%d:%f ", comm_rank, i, distances[i]);
+    }
+    printf("\n");
 
     // Uncomment for distance array of 0 
     // Should be 0 at pivot index
@@ -138,7 +143,7 @@ int main(int argc, char **argv) {
     MPI_Gather(distances, pointsNum, MPI_DOUBLE, dist_arr, pointsNum, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     
     if (comm_rank == 0) {
-        printf("Process #0 has gathered the distances:\n");
+        printf("\nProcess #0 has gathered the distances:\n");
         for (int i = 0; i < pointsNum * comm_size; i++) {
             printf("%f ", dist_arr[i]);
         }
