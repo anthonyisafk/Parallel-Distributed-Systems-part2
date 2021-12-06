@@ -26,78 +26,127 @@
 #include "headers/point.h"
 #include "headers/helpers.h"
 
-void findMedian(){
-	
 
+// Broadcast the dimensions of each point and how many points each process will have.
+void bcast_dims_points(FILE *file, int *info, int comm_rank, int comm_size) {
+    if (comm_rank == 0) {
+        fread(info, sizeof(int), 2, file);
+        info[1] = 10; // set the points per process to 2.
+        info[0] = 20; // set the dimensions to 10.
+    } 
 
+	MPI_Bcast(info, 2, MPI_LONG, 0, MPI_COMM_WORLD);
 }
 
 
-
-
 int main(int argc, char **argv) {
-	int DIMS = 2;
-	int POINTS_NUM = 3;
-  
-	int comm_size;
-	int comm_rank;
-
+	int comm_size, comm_rank;
+    MPI_Status mpi_stat101;
+    MPI_Request mpi_req101;
+    srand((unsigned) time(NULL));
 	// --------------- START OF TESTING MPI --------------- //
 	MPI_Init(&argc, &argv);
-
 	MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &comm_rank);
 
-	float *pivotCoord = (float *)malloc(DIMS*sizeof(float));
-	point pivot = {DIMS, pivotCoord};
+    int *info = malloc(2 * sizeof(int));
+    int dims, pointsNum;
+    float median;
+    FILE *file;
+    if (comm_rank == 0) {
+        file = fopen("data/mnist.bin", "rb");
+    }
 
-	float *distances = (float *)malloc(POINTS_NUM*sizeof(float));
+    // Assign the info[] values to new variables to make the code more coherent.
+    bcast_dims_points(file, info, comm_rank, comm_size);
+    dims = info[0];
+    pointsNum = info[1];
+    //printf("P#%d: dims = %d, points per process = %d\n", comm_rank, dims, pointsNum);
 
-	point *points = (point *) malloc(POINTS_NUM * sizeof(point));
-	for (int i = 0; i < POINTS_NUM; i++) {
-		points[i].coord = (float *) malloc(DIMS * sizeof(float)); 
-	}
 
-	time_t t;
-	srand((unsigned) time(&t));
+    float *points = malloc(dims * pointsNum * sizeof(float));
+    float *pivot = malloc(dims * sizeof(float));
+    MPI_Barrier(MPI_COMM_WORLD);
 
-	for (int i = 0; i < POINTS_NUM; i++) {
-		points[i].dims = DIMS;
-		for (int j = 0; j < DIMS; j++) {
-			points[i].coord[j] = (comm_rank+0.5) * (float)rand() / ((float)RAND_MAX);
-		}
-	}
+    if (comm_rank == 0) {
+        for (int i = 0; i < comm_size; i++) {
+            fread(points, sizeof(float), dims * pointsNum , file);
+            //printf("Read points (%d dimensions) for process #%d\n", dims, i);
+            MPI_Send(points, dims * pointsNum, MPI_FLOAT, i, 101, MPI_COMM_WORLD);
+        }
+    }
+    MPI_Recv(points, dims * pointsNum, MPI_FLOAT, 0, 101, MPI_COMM_WORLD, &mpi_stat101);
 
-	printProcess(points, comm_rank, POINTS_NUM, DIMS);	
+    // Change rank to check validity of transfers 
+    if (comm_rank == 0) {
+        printf("Process #%d contains:\n", comm_rank);
+        for (int i = 0; i < pointsNum * dims; i++) {
+            if(i%dims == 0)printf("\n");
+            printf("%f ", points[i]);
+        }
+        printf("\n");
+    }
+    // Points are distributed and all processes are synched
 
-	// The master picks a pivot, then broadcasts the index (for testing's sake)
-	// then copies the coordinates to the array it's going to broadcast.
-	if (comm_rank == 0) {
-		int pivotIndex = rand() % POINTS_NUM;
+    // Pick a pivot and broadcast it 
+    if (comm_rank == 0) {
+        int pivotIndex = rand() % pointsNum;
+        printf("Pivot index is %d\n", pivotIndex);
+        for (int i = 0; i < dims; i++) {
+            pivot[i] = points[i+pivotIndex*dims];
+			//printf("pivot[%d] = %1.3f\n", i, pivot[i]);
+		}  
+    }
+    MPI_Bcast(pivot, dims, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
-		for (int i = 0; i < DIMS; i++) {
-			pivot.coord[i] = points[pivotIndex].coord[i];
-			printf("pivot.coord[%d] = %f\n", i, pivot.coord[i]);
-		}
-	}
+    // Uncomment to test pivot transfer
+    // if (comm_rank == 2) {
+    //     printf("P#%d GMTPS VALE TO ARISTERO LAY UP:\n", comm_rank);
+    //     for (int i = 0; i < dims; i++) {
+    //         pivot[i] = pivot[i];
+	// 		printf("pivot[%d] = %1.3f\n", i, pivot[i]);
+	// 	} 
+    //     printf("\n");
+    // }
 
-	MPI_Bcast(pivotCoord, DIMS, MPI_FLOAT, 0, MPI_COMM_WORLD);
+    //Calculate distances from pivot
+    float *distances = malloc(pointsNum*sizeof(float));
+        
+    for(int i = 0; i < pointsNum; i++){
+        distances[i] = calculateDistanceArray(points, dims*i, pivot, dims);
+    }
 
-	// For each point calculate distance from pivot
-	for(int i=0; i<POINTS_NUM; i++){
-		distances[i] = calculateDistancePoint(points[i], pivot);
-	}
+    // Uncomment for distance arary of 0 
+    // Should be 0 at pivot index
+    // First 7 points should always have the same value
+    // if (comm_rank == 0) {
+    //     printf("Dist array for %d is:\n", comm_rank);
+    //     for (int i = 0; i < pointsNum; i++) {
+	// 		printf("distances[%d] = %1.3f\n", i, distances[i]);
+	// 	} 
+    //     printf("\n");
+    // }
 
-	// Print distance matrices
-	MPI_Barrier(MPI_COMM_WORLD);
-	for(int i=0; i<POINTS_NUM; i++){
-		printf("distances[%d] = %f\n", i, distances[i]);
-	}
+    // Send distance array to master, calculate median and send it back
+    
+    if(comm_rank == 0){
+        float *dist_arr = malloc(pointsNum*comm_size*sizeof(float));
+        MPI_Gather(distances, pointsNum, MPI_FLOAT, dist_arr, pointsNum, MPI_FLOAT, 0, MPI_COMM_WORLD);
+        
+        // Code from this point on should be moved to the recursive function
+        median = quickselect(dist_arr, pointsNum*comm_size-1);
+        printf("Median distance is %f\n", median);
+        free(dist_arr);
+    }
+    else MPI_Gather(distances, pointsNum, MPI_FLOAT, NULL, 0, MPI_FLOAT, 0, MPI_COMM_WORLD);
+    
+    // Broadcast median
+    MPI_Bcast(&median, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
-	//Call recursive equation
+
+
 
 
 	MPI_Finalize();
-
 	return 0;
 }
