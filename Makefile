@@ -1,17 +1,15 @@
 MPICC=mpicc
 MATH=-lm
+INCLUDES=helpers.c
 
 default: all
 
 mpi_a:
-	$(MPICC) mpi_a.c -o mpi_a.o $(MATH)
+	$(MPICC) mpi_a.c -o mpi_a.o $(INCLUDES) $(MATH)
 
-mpi:
-	$(MPICC) mpi.c -o mpi.o $(MATH)
-
-all: mpi_a mpi
+all: mpi_a 
 
 .PHONY: clean
 
 clean:
-	rm -f mpi_a mpi
+	rm -f mpi_a.o 
