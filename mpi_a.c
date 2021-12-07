@@ -31,8 +31,8 @@
 void bcast_dims_points(FILE *file, long *info, int comm_rank, int comm_size) {
     if (comm_rank == 0) {
         fread(info, sizeof(long), 2, file);
-        info[1] = 10; // set the points per process to 2.
-        info[0] = 15; // set the dimensions to 10.
+        info[1] = 200; // set the points per process to 2.
+        // info[0] = 20; // set the dimensions to 10.
     } 
 
 	MPI_Bcast(info, 2, MPI_LONG, 0, MPI_COMM_WORLD);
@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
 	MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &comm_rank);
 
-    long *info = malloc(2 * sizeof(long));
+    long *info = (long *) calloc(2, sizeof(long));
     long dims, pointsNum;
     float median;
     FILE *file;
@@ -63,54 +63,61 @@ int main(int argc, char **argv) {
     dims = info[0];
     pointsNum = info[1];
 
+
     float *points = malloc(dims * pointsNum * sizeof(float));
     float *pivot = malloc(dims * sizeof(float));
     MPI_Barrier(MPI_COMM_WORLD);
 
     if (comm_rank == 0) {
         // Skip some elements to find some nonzero values.
-        for (int i = 0; i < 1000 ; i++) {
+        for (int i = 0; i < 10 ; i++) {
             fread(points, sizeof(float), dims * pointsNum , file);
         }
 
-        for (int i = 0; i < comm_size; i++) {
+        // Send the first batch of floats back to master.
+        fread(points, sizeof(float), dims * pointsNum , file);
+        MPI_Sendrecv(points, dims * pointsNum, MPI_FLOAT, 0, 101, points,
+            dims * pointsNum, MPI_FLOAT, 0, 101, MPI_COMM_WORLD, &mpi_stat101);
+
+        // Keep reading and send to the other processes.
+        for (int i = 1; i < comm_size; i++) {
             fread(points, sizeof(float), dims * pointsNum , file);
             MPI_Send(points, dims * pointsNum, MPI_FLOAT, i, 101, MPI_COMM_WORLD);
         }
+    } else{
+        MPI_Recv(points, dims * pointsNum, MPI_FLOAT, 0, 101, MPI_COMM_WORLD, &mpi_stat101);
     }
-    MPI_Recv(points, dims * pointsNum, MPI_FLOAT, 0, 101, MPI_COMM_WORLD, &mpi_stat101);
 
     // Change rank to check validity of transfers 
-    if (comm_rank == 0) {
-        printf("Process #%d contains:\n", comm_rank);
-        for (int i = 0; i < pointsNum * dims; i++) {
-            if(i%dims == 0)printf("\n");
-            printf("%f ", points[i]);
-        }
-        printf("\n");
-    }
-    // Points are distributed and all processes are synched
+    // if (comm_rank == 0) {
+    //     printf("Process #%d contains:\n", comm_rank);
+    //     for (int i = 0; i < pointsNum * dims; i++) {
+    //         if(i%dims == 0)printf("\n");
+    //         printf("%f ", points[i]);
+    //     }
+    //     printf("\n");
+    // }
 
     // Pick a pivot and broadcast it 
     if (comm_rank == 0) {
         int pivotIndex = rand() % pointsNum;
         printf("Pivot index is %d\n", pivotIndex);
 
-        for (int i = 0; i < dims; i++) {
-            pivot[i] = points[i + pivotIndex * dims];
-		}  
+        // for (int i = 0; i < dims; i++) {
+        //     pivot[i] = points[i + pivotIndex * dims];
+		// }  
     }
     MPI_Bcast(pivot, dims, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
     // Uncomment to test pivot transfer
-    if (comm_rank == 2) {
-        printf("P#%d GMTPS VALE TO ARISTERO LAY UP:\n", comm_rank);
-        for (int i = 0; i < dims; i++) {
-            pivot[i] = pivot[i];
-			printf("pivot[%d] = %.3f\n", i, pivot[i]);
-		} 
-        printf("\n");
-    }
+    // if (comm_rank == 2) {
+    //     printf("P#%d GMTPS VALE TO ARISTERO LAY UP:\n", comm_rank);
+    //     for (int i = 0; i < dims; i++) {
+    //         pivot[i] = pivot[i];
+	// 		printf("pivot[%d] = %.3f\n", i, pivot[i]);
+	// 	} 
+    //     printf("\n");
+    // }
 
     //Calculate distances from pivot
     float *distances = (float *) malloc(pointsNum * sizeof(float));
