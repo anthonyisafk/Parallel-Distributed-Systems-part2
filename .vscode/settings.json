@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "helpers.h": "c",
+        "point.h": "c",
+        "mpihelp.h": "c",
+        "process.h": "c"
+    }
+}

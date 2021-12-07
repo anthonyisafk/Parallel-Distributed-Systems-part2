@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <math.h>
 
-#include "headers/point.h"
+#include "headers/process.h"
 #include "headers/helpers.h"
 
 

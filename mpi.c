@@ -26,7 +26,7 @@
 typedef struct point{
 	int size;
 	float *coordinates;
-}point;
+} point;
 
 float euclDistance(point a, point b){
 	if(a.size != b.size) return -1;

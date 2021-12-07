@@ -7,5 +7,4 @@ uint partition(float *arr, uint low, uint high);
 float kthSmallest(float *array, uint start, uint end, uint k);
 float quickselect(float *distances, uint end);
 
-
 #endif
