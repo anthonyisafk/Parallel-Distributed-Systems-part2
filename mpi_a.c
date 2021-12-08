@@ -22,6 +22,7 @@
 #include <mpi.h>
 #include <math.h>
 #include <time.h>
+#include <stdbool.h>
 
 #include "headers/process.h"
 #include "headers/helpers.h"
@@ -91,10 +92,10 @@ int main(int argc, char **argv) {
         distances[i] = calculateDistanceArray(points, dims * i, pivot, dims);
     }
 
-    for (int i = 0; i < pointsNum; i++) {
-        printf("D%d,%d:%f ", comm_rank, i, distances[i]);
-    }
-    printf("\n");
+    // for (int i = 0; i < pointsNum; i++) {
+    //     printf("D%d,%d:%f ", comm_rank, i, distances[i]);
+    // }
+    // printf("\n");
 
     // Uncomment for distance array of 0 
     // Should be 0 at pivot index
@@ -130,6 +131,30 @@ int main(int argc, char **argv) {
 
     MPI_Barrier(MPI_COMM_WORLD);
     printf("Process #%d says: median = %f\n", comm_rank, median);
+
+    // The table each process uses to see whether a point it possesses has a distance
+    // from the pivot point that is larger than the median.
+    bool *largerThanMedian = (bool *) malloc(pointsNum * sizeof(bool));
+
+    // Used by the master to gather every boolean from every process.
+    bool *allLarger = NULL;
+    if (comm_rank == 0) {
+        allLarger = (bool *) malloc(pointsNum * comm_size * sizeof(bool));
+    }
+
+    for (long i = 0; i < pointsNum; i++) {
+        if (distances[i] > median) {
+            largerThanMedian[i] = true;
+        }
+    }
+    MPI_Gather(largerThanMedian, pointsNum, MPI_C_BOOL, allLarger, pointsNum, MPI_C_BOOL, 0, MPI_COMM_WORLD);
+
+    // Print the allLarger array.
+    // if (comm_rank == 0) {
+    //     for (int i = 0; i < pointsNum * comm_size; i++) {
+    //         printf("%s ", allLarger[i] ? "true" : "false");
+    //     }
+    // }
 
 
 
