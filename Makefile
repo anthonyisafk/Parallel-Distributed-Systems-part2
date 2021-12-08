@@ -1,6 +1,6 @@
-MPICC=mpicc
-MATH=-lm
-INCLUDES=helpers.c mpihelp.c
+MPICC = mpicc
+MATH = -lm
+INCLUDES = helpers.c mpihelp.c
 
 default: all
 
