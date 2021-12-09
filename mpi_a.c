@@ -63,50 +63,14 @@ int main(int argc, char **argv) {
     // Split the data from the binary file into processes.
     split_into_processes(file, &proc, points);
 
-    // Change rank to check validity of transfers 
-    // if (comm_rank == 1) {
-    //     printf("Process #%d contains:\n", comm_rank);
-    //     for (int i = 0; i < pointsNum * dims; i++) {
-    //         if(i%dims == 0)printf("\n");
-    //         printf("%f ", points[i]);
-    //     }
-    //     printf("\n");
-    // }
-
     // Select anc broadcast pivot.
     bcast_pivot(&proc, pivot, points);
-
-    // Uncomment to test pivot transfer
-    // if (comm_rank == 2) {
-    //     printf("P#%d GMTPS VALE TO ARISTERO LAY UP:\n", comm_rank);
-    //     for (int i = 0; i < dims; i++) {
-    //         pivot[i] = pivot[i];
-	// 		printf("pivot[%d] = %.3f\n", i, pivot[i]);
-	// 	} 
-    //     printf("\n");
-    // }
 
     //Calculate distances from pivot
     float *distances = (float *) malloc(pointsNum * sizeof(float));
     for (int i = 0; i < pointsNum; i++) {
         distances[i] = calculateDistanceArray(points, dims * i, pivot, dims);
     }
-
-    // for (int i = 0; i < pointsNum; i++) {
-    //     printf("D%d,%d:%f ", comm_rank, i, distances[i]);
-    // }
-    // printf("\n");
-
-    // Uncomment for distance array of 0 
-    // Should be 0 at pivot index
-    // First 7 points should always have the same value
-    // if (comm_rank == 0) {
-    //     printf("Dist array for %d is:\n", comm_rank);
-    //     for (int i = 0; i < pointsNum; i++) {
-	// 		printf("distances[%d] = %1.3f\n", i, distances[i]);
-	// 	} 
-    //     printf("\n");
-    // }
 
     // Initialize the array that will keep all the distances for the master to find the median.
     // It only needs to be initialized in the case of the master, to conserve memory.
