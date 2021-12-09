@@ -77,14 +77,14 @@ int main(int argc, char **argv) {
     bcast_pivot(&proc, pivot, points);
 
     // Uncomment to test pivot transfer
-    if (comm_rank == 2) {
-        printf("P#%d GMTPS VALE TO ARISTERO LAY UP:\n", comm_rank);
-        for (int i = 0; i < dims; i++) {
-            pivot[i] = pivot[i];
-			printf("pivot[%d] = %.3f\n", i, pivot[i]);
-		} 
-        printf("\n");
-    }
+    // if (comm_rank == 2) {
+    //     printf("P#%d GMTPS VALE TO ARISTERO LAY UP:\n", comm_rank);
+    //     for (int i = 0; i < dims; i++) {
+    //         pivot[i] = pivot[i];
+	// 		printf("pivot[%d] = %.3f\n", i, pivot[i]);
+	// 	} 
+    //     printf("\n");
+    // }
 
     //Calculate distances from pivot
     float *distances = (float *) malloc(pointsNum * sizeof(float));
@@ -128,33 +128,48 @@ int main(int argc, char **argv) {
     }
     // Broadcast median.
     MPI_Bcast(&median, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
-
     MPI_Barrier(MPI_COMM_WORLD);
-    printf("Process #%d says: median = %f\n", comm_rank, median);
 
     // The table each process uses to see whether a point it possesses has a distance
     // from the pivot point that is larger than the median.
-    bool *largerThanMedian = (bool *) malloc(pointsNum * sizeof(bool));
+    int *isLargerThanMedian = (int *) malloc(pointsNum * sizeof(int));
+    
+    // The integer that is to be gathered by the master from each process.
+    long largerThanMedian = 0;
 
-    // Used by the master to gather every boolean from every process.
-    bool *allLarger = NULL;
+    // The array that stores the largerThanMedian values.
+    long *largerForEach = NULL;
     if (comm_rank == 0) {
-        allLarger = (bool *) malloc(pointsNum * comm_size * sizeof(bool));
+        largerForEach = (long *) calloc(comm_size, sizeof(long));
     }
 
+    /**
+     * isLargerThanMedian:
+     * 1 if distance is larger than median,
+     * 0 if distance is equal to median,
+     * -1 if distamce is less than median.
+     */
     for (long i = 0; i < pointsNum; i++) {
         if (distances[i] > median) {
-            largerThanMedian[i] = true;
+            isLargerThanMedian[i] = 1;
+            largerThanMedian++;
+        } 
+        else if (distances[i] == median) {
+            isLargerThanMedian[i] = 0;
+        }
+        else {
+            isLargerThanMedian[i] = -1;
         }
     }
-    MPI_Gather(largerThanMedian, pointsNum, MPI_C_BOOL, allLarger, pointsNum, MPI_C_BOOL, 0, MPI_COMM_WORLD);
+    MPI_Gather(&largerThanMedian, 1, MPI_LONG, largerForEach, 1, MPI_LONG, 0, MPI_COMM_WORLD);
 
-    // Print the allLarger array.
-    // if (comm_rank == 0) {
-    //     for (int i = 0; i < pointsNum * comm_size; i++) {
-    //         printf("%s ", allLarger[i] ? "true" : "false");
-    //     }
-    // }
+    if (comm_rank == 0) {
+        printf("Process #0 has gathered how many distances are larger than the median for each process.\n");
+        for (int i = 0; i < comm_size; i++) {
+            printf("%ld ", largerForEach[i]);
+        }
+        printf("\n");
+    }
 
 
 
