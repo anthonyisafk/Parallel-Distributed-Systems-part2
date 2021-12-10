@@ -19,7 +19,7 @@ void bcast_dims_points(FILE *file, long *info, int comm_rank, int comm_size) {
         // Split the points evenly between each process.
         // info[1] /= comm_size;
 
-        info[1] = 200; // set the points per process to 200.
+        info[1] = 10; // set the points per process to 200.
     } 
 
 	MPI_Bcast(info, 2, MPI_LONG, 0, MPI_COMM_WORLD);

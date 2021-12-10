@@ -81,15 +81,10 @@ int main(int argc, char **argv) {
     MPI_Gather(distances, pointsNum, MPI_FLOAT, dist_arr, pointsNum, MPI_FLOAT, 0, MPI_COMM_WORLD);
     
     if (comm_rank == 0) {
-        // printf("\nProcess #0 has gathered the distances:\n");
-        // for (int i = 0; i < pointsNum * comm_size; i++) {
-        //     printf("%f ", dist_arr[i]);
-        // }
-        // printf("\n");
-
         median = quickselect(dist_arr, pointsNum*comm_size-1);
         printf("\nMedian distance is %f\n", median);
     }
+
     // Broadcast median.
     MPI_Bcast(&median, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD);
@@ -129,25 +124,46 @@ int main(int argc, char **argv) {
     }
     MPI_Gather(&largerThanMedian, 1, MPI_LONG, largerForEach, 1, MPI_LONG, 0, MPI_COMM_WORLD);
 
-    /**
-     * Indices used for rearranging distances based on their relation to the median.
-     * r is the index of the first item that's greater than the median,
-     * l is the index of the last item that's smaller than the median,
-     * cl and cr are the leftmost and rightmost indices of the elements that are equal to
-     * the median, in the middle of the distance array.
-     */ 
-    uint r, l, cl, cr = -1;
-    while(l != smallerThanMedian - 1 && r != pointsNum - largerThanMedian - 1) {
+    // if (comm_rank == 0) {
+    //     printf("Process #0 has gathered how many distances are larger than the median for each process.\n");
+    //     for (int i = 0; i < comm_size; i++) {
+    //         printf("%ld ", largerForEach[i]);
+    //     }
+    //     printf("\n");
+    // }
 
+    if (comm_rank == 4) {
+        printf("Distances before sortByMedian\n");
+        for (int i = 0; i < pointsNum; i++) {
+            printf("%f ", distances[i]);
+        }
+
+        printf("\nPoints before sortByMedian\n");
+        for (int i = 0; i < pointsNum; i++) {
+            for (int j = 700; j < 715; j++) {
+                printf("%f ", points[dims * i + j]);
+            }
+            printf("\n");
+        }
     }
 
+    sortByMedian(distances, points, median, pointsNum, dims);
 
-    if (comm_rank == 0) {
-        printf("Process #0 has gathered how many distances are larger than the median for each process.\n");
-        for (int i = 0; i < comm_size; i++) {
-            printf("%ld ", largerForEach[i]);
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    if (comm_rank == 4) {
+        printf("\nAfter sortByMedian\n");
+        for (int i = 0; i < pointsNum; i++) {
+            printf("%f ", distances[i]);
         }
-        printf("\n");
+
+        printf("\nPoints after sortByMedian\n");
+        for (int i = 0; i < pointsNum; i++) {
+            for (int j = 700; j < 715; j++) {
+                printf("%f ", points[dims * i + j]);
+            }
+            printf("\n");
+        }    
     }
 
 

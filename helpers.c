@@ -86,4 +86,59 @@ float quickselect(float *distances, uint end) {
 }
 
 
+/**
+ * Swaps two values in an array. 
+ * @param len: Used if we want to swap chunks of data, rather than just a single value.
+ * len is set to dims when transfering points in a process.
+ */ 
+void swap(float *array, long x, long y, long len) {
+    for (long i = 0; i < len; i++) {
+        float temp = array[x+i];
+        array[x+i] = array[y+i];
+        array[y+i] = temp;
+    }
+}
+
+
+/**
+ * Sorts an array depending on the median value. Values greater than the median
+ * go to the right, smaller values to the left and values equal to the median 
+ * remain in the middle. The algorithm basically sorts the left side of the array,
+ * while the right side takes care of itself during the execution.
+ */ 
+void sortByMedian(float *array, float *points, float median, long size, long dims) {
+    // Keeps track of the value we are now checking.
+	long i = 0;
+    // The last value of the rightmost side that is sorted.
+	long right = size;
+    // The last value of the leftmost side that is sorted.
+	long left = 0;
+    // Keeps track of the last median encountered.
+	long center = -1;
+
+	while (i != right) {
+		if (array[i] < median) {
+			swap(array, i, left, 1);
+            swap(points, i * dims, left * dims, dims);
+			left++;
+			center++;
+			i++;
+		}
+		else if (array[i] > median) {
+            // Only do the swap the value if it doesn't belong in the
+            // rightmost set.
+			if (array[right - 1] <= median) {
+                swap(array, i, right - 1, 1);
+                swap(points, i * dims, (right - 1) * dims, dims);
+			}
+			right--;
+		} else {
+			center++;
+			i++;
+		}
+	}
+}
+
+
+
 #endif
