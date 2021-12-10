@@ -100,6 +100,7 @@ int main(int argc, char **argv) {
     
     // The integer that is to be gathered by the master from each process.
     long largerThanMedian = 0;
+    long smallerThanMedian = 0;
 
     // The array that stores the largerThanMedian values.
     long *largerForEach = NULL;
@@ -123,9 +124,23 @@ int main(int argc, char **argv) {
         }
         else {
             isLargerThanMedian[i] = -1;
+            smallerThanMedian++;
         }
     }
     MPI_Gather(&largerThanMedian, 1, MPI_LONG, largerForEach, 1, MPI_LONG, 0, MPI_COMM_WORLD);
+
+    /**
+     * Indices used for rearranging distances based on their relation to the median.
+     * r is the index of the first item that's greater than the median,
+     * l is the index of the last item that's smaller than the median,
+     * cl and cr are the leftmost and rightmost indices of the elements that are equal to
+     * the median, in the middle of the distance array.
+     */ 
+    uint r, l, cl, cr = -1;
+    while(l != smallerThanMedian - 1 && r != pointsNum - largerThanMedian - 1) {
+
+    }
+
 
     if (comm_rank == 0) {
         printf("Process #0 has gathered how many distances are larger than the median for each process.\n");
