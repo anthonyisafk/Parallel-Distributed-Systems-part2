@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
     MPI_Gather(distances, pointsNum, MPI_FLOAT, dist_arr, pointsNum, MPI_FLOAT, 0, MPI_COMM_WORLD);
     
     if (comm_rank == 0) {
-        median = quickselect(dist_arr, pointsNum*comm_size-1);
+        median = quickselect(dist_arr, pointsNum * comm_size);
         printf("\nMedian distance is %f\n", median);
     }
 
@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
         //     printf("\n");
         // }
 
-        printf("\nisLargerThanMedian before sortByMedian for process #%d\n", comm_rank);
+        printf("\nisUnwanted before sortByMedian for process #%d\n", comm_rank);
         for (int i = 0; i < pointsNum; i++) {
             printf("%d ", isUnwanted[i]);
         }
@@ -142,7 +142,7 @@ int main(int argc, char **argv) {
         //     printf("\n");
         // }    
 
-        printf("\nisLargerThanMedian after sortByMedian for process #%d\n", comm_rank);
+        printf("\nisUnwanted after sortByMedian for process #%d\n", comm_rank);
         for (int i = 0; i < pointsNum; i++) {
             printf("%d ", isUnwanted[i]);
         }

@@ -91,9 +91,8 @@ void findUnwantedPoints (int *isUnwanted, float *distances, process *p, float me
 
 
 /**
- * Sorts an array depending on the median value. Values greater than the median
- * go to the right, smaller values to the left and values equal to the median 
- * remain in the middle. The algorithm basically sorts the left side of the array,
+ * Sorts an array depending on the median value.
+ * The algorithm basically sorts the left side of the array,
  * while the right side takes care of itself during the execution.
  * Also swap the values between the helping arrays: points and isLargerThanMedian.
  */ 
@@ -121,7 +120,7 @@ void sortByMedian(float *array, float *points, int *largerThanMedian, float medi
             i++;
         }
         else if (right_half * array[i] > right_half * median) {
-            // Only do the swap the value if it doesn't belong in the
+            // Only do the swap if value doesn't belong in the
             // rightmost set.
             if (right_half * array[right - 1] <= right_half * median) {
                 swapFloat(array, i, right - 1, 1);
