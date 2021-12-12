@@ -89,40 +89,10 @@ int main(int argc, char **argv) {
     MPI_Bcast(&median, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD);
 
-    // The table each process uses to see whether a point it possesses has a distance
-    // from the pivot point that is larger than the median.
-    int *isLargerThanMedian = (int *) malloc(pointsNum * sizeof(int));
+    // The table each process uses to see whether a point it possesses has to stay or not.
+    int *isUnwanted = (int *) malloc(pointsNum * sizeof(int));
     
-    // The integer that is to be gathered by the master from each process.
-    long largerThanMedian = 0;
-    long smallerThanMedian = 0;
-
-    // The array that stores the largerThanMedian values.
-    long *largerForEach = NULL;
-    if (comm_rank == 0) {
-        largerForEach = (long *) calloc(comm_size, sizeof(long));
-    }
-
-    /**
-     * isLargerThanMedian:
-     * 1 if distance is larger than median,
-     * 0 if distance is equal to median,
-     * -1 if distamce is less than median.
-     */
-    for (long i = 0; i < pointsNum; i++) {
-        if (distances[i] > median) {
-            isLargerThanMedian[i] = 1;
-            largerThanMedian++;
-        } 
-        else if (distances[i] == median) {
-            isLargerThanMedian[i] = 0;
-        }
-        else {
-            isLargerThanMedian[i] = -1;
-            smallerThanMedian++;
-        }
-    }
-    MPI_Gather(&largerThanMedian, 1, MPI_LONG, largerForEach, 1, MPI_LONG, 0, MPI_COMM_WORLD);
+    findUnwantedPoints(isUnwanted, distances, &proc, median);
 
     // if (comm_rank == 0) {
     //     printf("Process #0 has gathered how many distances are larger than the median for each process.\n");
@@ -132,39 +102,61 @@ int main(int argc, char **argv) {
     //     printf("\n");
     // }
 
-    if (comm_rank == 4) {
-        printf("Distances before sortByMedian\n");
+    if (comm_rank == 2 || comm_rank == 6) {
+        printf("Distances before sortByMedian for process #%d\n", comm_rank);
         for (int i = 0; i < pointsNum; i++) {
             printf("%f ", distances[i]);
         }
 
-        printf("\nPoints before sortByMedian\n");
+        // printf("\nPoints before sortByMedian\n");
+        // for (int i = 0; i < pointsNum; i++) {
+        //     for (int j = 700; j < 715; j++) {
+        //         printf("%f ", points[dims * i + j]);
+        //     }
+        //     printf("\n");
+        // }
+
+        printf("\nisLargerThanMedian before sortByMedian for process #%d\n", comm_rank);
         for (int i = 0; i < pointsNum; i++) {
-            for (int j = 700; j < 715; j++) {
-                printf("%f ", points[dims * i + j]);
-            }
-            printf("\n");
+            printf("%d ", isUnwanted[i]);
         }
+        printf("\n");
     }
 
-    sortByMedian(distances, points, median, pointsNum, dims);
+    sortByMedian(distances, points, isUnwanted, median, &proc);
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    if (comm_rank == 4) {
-        printf("\nAfter sortByMedian\n");
+    if (comm_rank == 2 || comm_rank == 6) {
+        printf("\nAfter sortByMedian for process #%d\n", comm_rank);
         for (int i = 0; i < pointsNum; i++) {
             printf("%f ", distances[i]);
         }
+        printf("\n");
 
-        printf("\nPoints after sortByMedian\n");
+        // printf("\nPoints after sortByMedian\n");
+        // for (int i = 0; i < pointsNum; i++) {
+        //     for (int j = 700; j < 715; j++) {
+        //         printf("%f ", points[dims * i + j]);
+        //     }
+        //     printf("\n");
+        // }    
+
+        printf("\nisLargerThanMedian after sortByMedian for process #%d\n", comm_rank);
         for (int i = 0; i < pointsNum; i++) {
-            for (int j = 700; j < 715; j++) {
-                printf("%f ", points[dims * i + j]);
-            }
-            printf("\n");
-        }    
+            printf("%d ", isUnwanted[i]);
+        }
+        printf("\n");
     }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // ---------- START TESTING DISRIBUTEBYMEDIAN ---------- //
+
+
+
+
+
 
 
 
