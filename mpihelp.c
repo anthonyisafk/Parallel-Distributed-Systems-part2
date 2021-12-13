@@ -21,7 +21,7 @@ void bcast_dims_points(FILE *file, long *info, int comm_rank, int comm_size) {
         // Split the points evenly between each process.
         // info[1] /= comm_size;
 
-        info[1] = 10; // set the points per process to 200.
+        info[1] = 4; // set the points per process to 200.
     } 
 
 	MPI_Bcast(info, 2, MPI_LONG, 0, MPI_COMM_WORLD);
@@ -72,10 +72,12 @@ void bcast_pivot(process *p, float *pivot, float *points) {
  * the values larger than the median are first and the other half prioritizes
  * having the smaller values first.
  */
-void findUnwantedPoints (int *isUnwanted, float *distances, process *p, float median) {
+
+ //TO DO: add communicator parameters since it will be different for each recursive step 
+int findUnwantedPoints (int *isUnwanted, float *distances, process *p, float median) {
     // Multiply by -1 if the process is looking for small elements to send out.
     int right_half = (p->comm_rank + 1 > p->comm_size / 2) ? -1 : 1;  
-
+    int unwantedNum = 0;
     for (long i = 0; i < p->pointsNum; i++) {
         if (right_half * distances[i] < right_half * median) {
             isUnwanted[i] = 1;
@@ -85,8 +87,11 @@ void findUnwantedPoints (int *isUnwanted, float *distances, process *p, float me
         }
         else {
             isUnwanted[i] = -1;
+            unwantedNum ++;
         }
     }
+
+    return unwantedNum;
 }
 
 
@@ -94,17 +99,19 @@ void findUnwantedPoints (int *isUnwanted, float *distances, process *p, float me
  * Sorts an array depending on the median value.
  * The algorithm basically sorts the left side of the array,
  * while the right side takes care of itself during the execution.
- * Also swap the values between the helping arrays: points and isLargerThanMedian.
+ * Also swap the values between the helping array points.
  */ 
-void sortByMedian(float *array, float *points, int *largerThanMedian, float median, process *p) {
+
+ //TO DO: add communicator parameters since it will be different for each recursive step 
+void sortByMedian(float *array, float *points, float median, process *p) {
     // Multiply by -1 if the process is looking for small elements to send out.
-    int right_half = (p->comm_rank + 1 > p->comm_size / 2) ? -1 : 1;
+    int right_half = (p->comm_rank + 1 > p->comm_size / 2) ? -1 : 1; 
 
     // Keeps track of the value we are now checking.
 	long i = 0;
-    // The last value of the rightmost side that is sorted.
+    // The index of the rightmost side that is sorted.
 	long right = p->pointsNum;
-    // The last value of the leftmost side that is sorted.
+    // The index of the leftmost side that is sorted.
 	long left = 0;
     // Keeps track of the last median encountered.
 	long center = -1;
@@ -113,7 +120,6 @@ void sortByMedian(float *array, float *points, int *largerThanMedian, float medi
         if (right_half * array[i] < right_half * median) {
             swapFloat(array, i, left, 1);
             swapFloat(points, i * p->dims, left * p->dims, p->dims);
-            swapInt(largerThanMedian, i, left, 1);
             
             left++;
             center++;
@@ -125,7 +131,6 @@ void sortByMedian(float *array, float *points, int *largerThanMedian, float medi
             if (right_half * array[right - 1] <= right_half * median) {
                 swapFloat(array, i, right - 1, 1);
                 swapFloat(points, i * p->dims, (right - 1) * p->dims, p->dims);
-                swapInt(largerThanMedian, i, right - 1, 1);
             }
             right--;
         } else {

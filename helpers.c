@@ -76,8 +76,8 @@ float quickselect(float *distances, uint end) {
 
 	// The median is calculated depending on whether the population is even or odd.
 	if (end % 2 == 0) {
-		float mid1 = kthSmallest(distances, 0, end, mid_index - 1);
-		float mid2 = kthSmallest(distances, 0, end, mid_index);
+		float mid1 = kthSmallest(distances, 0, end, mid_index + 1);
+		float mid2 = kthSmallest(distances, 0, end, mid_index + 2);
 
 		printf("mid1 = %f, mid2 = %f\n", mid1, mid2);
 		return (float) ((mid1 + mid2) / 2);

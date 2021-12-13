@@ -40,6 +40,12 @@ int main(int argc, char **argv) {
 	MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &comm_rank);
 
+    // Check if processes are a power of 2
+    if(ceil(log2(comm_size)) != floor(log2(comm_size))){
+        printf("Processes given(%d) are not a power of 2.\n", comm_size);
+        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+    }
+
     long *info = (long *) calloc(2, sizeof(long));
     long dims, pointsNum;
     float median;
@@ -63,7 +69,7 @@ int main(int argc, char **argv) {
     // Split the data from the binary file into processes.
     split_into_processes(file, &proc, points);
 
-    // Select anc broadcast pivot.
+    // Select and broadcast pivot.
     bcast_pivot(&proc, pivot, points);
 
     //Calculate distances from pivot
@@ -82,18 +88,17 @@ int main(int argc, char **argv) {
     
     if (comm_rank == 0) {
         median = quickselect(dist_arr, pointsNum * comm_size);
-        printf("\nMedian distance is %f\n", median);
+        printf("\nMedian distance is %f\n\n", median);
     }
 
     // Broadcast median.
     MPI_Bcast(&median, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD);
 
-    // The table each process uses to see whether a point it possesses has to stay or not.
+    // The table each process uses to see whether a point it possesses has to be swapped.
     int *isUnwanted = (int *) malloc(pointsNum * sizeof(int));
     
-    findUnwantedPoints(isUnwanted, distances, &proc, median);
-
+    
     // if (comm_rank == 0) {
     //     printf("Process #0 has gathered how many distances are larger than the median for each process.\n");
     //     for (int i = 0; i < comm_size; i++) {
@@ -102,7 +107,7 @@ int main(int argc, char **argv) {
     //     printf("\n");
     // }
 
-    if (comm_rank == 2 || comm_rank == 6) {
+    if (comm_rank == 0 || comm_rank == 1) {
         printf("Distances before sortByMedian for process #%d\n", comm_rank);
         for (int i = 0; i < pointsNum; i++) {
             printf("%f ", distances[i]);
@@ -116,19 +121,20 @@ int main(int argc, char **argv) {
         //     printf("\n");
         // }
 
-        printf("\nisUnwanted before sortByMedian for process #%d\n", comm_rank);
-        for (int i = 0; i < pointsNum; i++) {
-            printf("%d ", isUnwanted[i]);
-        }
-        printf("\n");
+        // printf("\nisUnwanted before sortByMedian for process #%d\n", comm_rank);
+        // for (int i = 0; i < pointsNum; i++) {
+        //     printf("%d ", isUnwanted[i]);
+        // }
+        printf("\n\n");
     }
 
-    sortByMedian(distances, points, isUnwanted, median, &proc);
+    sortByMedian(distances, points, median, &proc);
+    int unwantedNum = findUnwantedPoints(isUnwanted, distances, &proc, median);
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    if (comm_rank == 2 || comm_rank == 6) {
-        printf("\nAfter sortByMedian for process #%d\n", comm_rank);
+    if (comm_rank == 0 || comm_rank == 1) {
+        printf("Distances after sortByMedian for process #%d\n", comm_rank);
         for (int i = 0; i < pointsNum; i++) {
             printf("%f ", distances[i]);
         }
@@ -146,13 +152,19 @@ int main(int argc, char **argv) {
         for (int i = 0; i < pointsNum; i++) {
             printf("%d ", isUnwanted[i]);
         }
-        printf("\n");
+        printf("\nTotal of %d unwanted elements for process #%d\n", unwantedNum, comm_rank);
+        printf("\n\n");
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
 
     // ---------- START TESTING DISRIBUTEBYMEDIAN ---------- //
+    
+    if(unwantedNum != 0 ){
+        printf("Hey there I am %d and I have %d to give\n", comm_rank, unwantedNum);    
+    }
 
+    
 
 
 
