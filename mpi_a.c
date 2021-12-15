@@ -149,12 +149,11 @@ int main(int argc, char **argv) {
         }
         printf("\n\n");
 
-        // printf("\nUnwanted matrix\n");
-        // for (int i = 0; i < comm_size; i++) {
-        //     printf("%d ", unwantedMat[i]);
-            
-        // }    
-        // printf("\n");
+        printf("\nUnwanted matrix\n");
+        for (int i = 0; i < comm_size; i++) {
+            printf("%d ", unwantedMat[i]);    
+        }    
+        printf("\n");
 
         // printf("\nisUnwanted after sortByMedian for process #%d\n", comm_rank);
         // for (int i = 0; i < pointsNum; i++) {
@@ -166,14 +165,68 @@ int main(int argc, char **argv) {
 
     // ---------- START TESTING DISRIBUTEBYMEDIAN ---------- //
 
-    // No need to find the most populated side we can always choose one side
-    // to do the send and receives randomly
-    if(comm_rank < comm_size/2){
-        // Find my match
+    if(unwantedNum !=0){
+        int my_pos = 0;
+        int peer_pos = 0;
+        int peer = 0;
+        int toTrade = 0;
+    //This part can be part of a function(my_rank, unWantedNum, unWantedMat)
+        if(comm_rank<comm_size/2){
+            // Find how many procs before me have unwanted elements
+            // My_pos > 0
+            for(int i = 0 ; i < comm_rank+1 ; i++){
+                if(unwantedMat[i] != 0) my_pos++;
+            }
 
-        // Send receive according to 
+            // Look at the other side for peer
+            for(int i = comm_size/2 ; i < comm_size ; i++){
+                if(unwantedMat[i] != 0) peer_pos++;
+                
+                if(peer_pos == my_pos){
+                    peer = i;
+                    toTrade = (unwantedNum <= unwantedMat[i]) ? unwantedNum : unwantedMat[i]; 
+                    printf("Proc %d paired with proc %d to trade %d elements\n", comm_rank, i, toTrade);
+                    break;
+                }
+            }
 
+            // if no peer is found after for, wait for next parallel round
+            if(peer_pos != 0){
+                // Enter send receive here
+                
+            }     
+        }
+        
+        //If you are on the right half do the above in reverse
+        //This can be written in less lines αλλα κουγιου 
+        else{
+           
+            for(int i = comm_size/2 ; i < comm_rank+1 ; i++){
+                if(unwantedMat[i] != 0) my_pos++;
+            }
+
+            // Look at the other side for peer
+            for(int i = 0 ; i < comm_size/2 ; i++){
+                if(unwantedMat[i] != 0) peer_pos++;
+                
+                if(peer_pos == my_pos){
+                    peer = i;
+                    toTrade = (unwantedNum <= unwantedMat[i]) ? unwantedNum : unwantedMat[i]; 
+                    printf("Proc %d paired with proc %d to trade %d elements\n", comm_rank, i, toTrade);
+                    break;
+                }
+            }
+
+            // if no peer is found after for, wait for next parallel round
+            if(peer_pos != 0){
+                // Enter send receive here
+                
+            }     
+        }
     }
+
+
+    
 
 	MPI_Finalize();
 	return 0;
