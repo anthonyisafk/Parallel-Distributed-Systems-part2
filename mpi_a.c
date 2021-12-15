@@ -220,7 +220,10 @@ int main(int argc, char **argv) {
             // if no peer is found after for, wait for next parallel round
             if(peer_pos != 0){
                 // Enter send receive here
-                
+                // Send from start of your unwanted (toTrade) number of points
+                // Must also swap distances 
+                //MPI_Sendrecv_replace(&buffer, 1, MPI_INT, peer, tag_send, peer,
+                // tag_recv, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }     
         }
     }
