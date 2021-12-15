@@ -72,14 +72,14 @@ float kthSmallest(float *array, uint start, uint end, uint k) {
 float quickselect(float *distances, uint end) {
 	// The index where the median is supposed to be.
 	uint mid_index = end / 2;
-	printf("MID INDEX = %d\n", mid_index);
+	//printf("MID INDEX = %d\n", mid_index);
 
 	// The median is calculated depending on whether the population is even or odd.
 	if (end % 2 == 0) {
 		float mid1 = kthSmallest(distances, 0, end, mid_index + 1);
 		float mid2 = kthSmallest(distances, 0, end, mid_index + 2);
 
-		printf("mid1 = %f, mid2 = %f\n", mid1, mid2);
+		//printf("mid1 = %f, mid2 = %f\n", mid1, mid2);
 		return (float) ((mid1 + mid2) / 2);
 	} else {
 		return kthSmallest(distances, 0, end, mid_index);

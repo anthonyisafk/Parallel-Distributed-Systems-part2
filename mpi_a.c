@@ -49,6 +49,8 @@ int main(int argc, char **argv) {
     long *info = (long *) calloc(2, sizeof(long));
     long dims, pointsNum;
     float median;
+    int available = 1;
+
     FILE *file;
     if (comm_rank == 0) {
         file = fopen("data/mnist.bin", "rb");
@@ -128,51 +130,50 @@ int main(int argc, char **argv) {
         printf("\n\n");
     }
 
+    //TODO integrate find unwanted nums to sort using right index
     sortByMedian(distances, points, median, &proc);
-    int unwantedNum = findUnwantedPoints(isUnwanted, distances, &proc, median);
 
+    // Calculate number of unwanted points and gather all data to all processes.
+    // This is the least amount of information needed to complete the transfers.
+    int* unwantedMat = malloc(comm_size*sizeof(int));
+    int unwantedNum = findUnwantedPoints(isUnwanted, distances, &proc, median);
+    int side ;
+    
     MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Allgather(&unwantedNum, 1, MPI_INT, unwantedMat, 1, MPI_INT, MPI_COMM_WORLD);
 
     if (comm_rank == 0 || comm_rank == 1) {
         printf("Distances after sortByMedian for process #%d\n", comm_rank);
         for (int i = 0; i < pointsNum; i++) {
             printf("%f ", distances[i]);
         }
-        printf("\n");
-
-        // printf("\nPoints after sortByMedian\n");
-        // for (int i = 0; i < pointsNum; i++) {
-        //     for (int j = 700; j < 715; j++) {
-        //         printf("%f ", points[dims * i + j]);
-        //     }
-        //     printf("\n");
-        // }    
-
-        printf("\nisUnwanted after sortByMedian for process #%d\n", comm_rank);
-        for (int i = 0; i < pointsNum; i++) {
-            printf("%d ", isUnwanted[i]);
-        }
-        printf("\nTotal of %d unwanted elements for process #%d\n", unwantedNum, comm_rank);
         printf("\n\n");
-    }
 
-    MPI_Barrier(MPI_COMM_WORLD);
+        // printf("\nUnwanted matrix\n");
+        // for (int i = 0; i < comm_size; i++) {
+        //     printf("%d ", unwantedMat[i]);
+            
+        // }    
+        // printf("\n");
+
+        // printf("\nisUnwanted after sortByMedian for process #%d\n", comm_rank);
+        // for (int i = 0; i < pointsNum; i++) {
+        //     printf("%d ", isUnwanted[i]);
+        // }
+        // printf("\nTotal of %d unwanted elements for process #%d\n", unwantedNum, comm_rank);
+        // printf("\n\n");
+    }
 
     // ---------- START TESTING DISRIBUTEBYMEDIAN ---------- //
-    
-    if(unwantedNum != 0 ){
-        printf("Hey there I am %d and I have %d to give\n", comm_rank, unwantedNum);    
+
+    // No need to find the most populated side we can always choose one side
+    // to do the send and receives randomly
+    if(comm_rank < comm_size/2){
+        // Find my match
+
+        // Send receive according to 
+
     }
-
-    
-
-
-
-
-
-
-
-
 
 	MPI_Finalize();
 	return 0;

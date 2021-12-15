@@ -1,67 +1,42 @@
-#include <stdio.h> 
+#include <stdio.h>
 #include <stdlib.h>
+#include <mpi.h>
+#include <math.h>
 #include <time.h>
-
-void swap(int i, int j, int* array){
-	int temp = 0;
-	temp = array[i];
-	array[i] = array[j];
-	array[j] = temp;
-}
-
-
-
-int main(int argc, char const *argv[])
+#include <stdbool.h>
+ 
+/**
+ * @brief Pair communications between 2 MPI processes sending a message to each other.
+ **/
+int main(int argc, char* argv[])
 {
-	int* array;
-	int len = 12;
-	array = malloc(len*sizeof(int));	
-	int i = 0;
-	int r = len;
-	int cl = 0;
-	int cr = -1;
-	float median = 2;
-	srand((unsigned) time(NULL));
-	for(int i = 0 ; i< len ; i++){
-		array[i]=rand()%6;
-	}
-
-	for(int i = 0 ; i< len ; i++){
-		printf("%d ",array[i] );	
-	}
-	printf("\n");
-
-	while(i!=r){
-		if(array[i] < median ){
-			swap(i, cl, array);
-			cl++;
-			cr++;
-			i++;
-		}
-		else if(array[i] > median){
-			if(array[r-1]<= median){
-				swap(i, r-1, array);
-			}
-			r--;
-		}
-		else{
-			cr++;
-			i++;
-		}
-
-
-		for(int i = 0 ; i< len ; i++){
-			printf("%d ",array[i] );	
-		}
-		printf("\n");
-
-	}
-	
-	for(int i = 0 ; i< len ; i++){
-		printf("%d ",array[i] );	
-	}
-	printf("\n");
-
-	return 0;
-	
+    MPI_Init(&argc, &argv);
+ 
+    // Make sure exactly 2 MPI processes are used
+    int size;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    if(size != 2)
+    {
+        printf("%d MPI processes used, please use 2.\n", size);
+        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+    }
+ 
+    // Prepare parameters
+    int my_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    int buffer_send = (my_rank == 0) ? 12345 : 67890;
+    int buffer_recv;
+    int tag_send = 0;
+    int tag_recv = tag_send;
+    int peer = (my_rank == 0) ? 1 : 0;
+ 
+    // Issue the send + receive at the same time
+    printf("MPI process %d sends value %d to MPI process %d.\n", my_rank, buffer_send, peer);
+    MPI_Sendrecv(&buffer_send, 1, MPI_INT, peer, tag_send,
+                 &buffer_recv, 1, MPI_INT, peer, tag_recv, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    printf("MPI process %d received value %d from MPI process %d.\n", my_rank, buffer_recv, peer);
+ 
+    MPI_Finalize();
+ 
+    return EXIT_SUCCESS;
 }
