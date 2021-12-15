@@ -192,8 +192,8 @@ int main(int argc, char **argv) {
 
             // if no peer is found after for, wait for next parallel round
             if(peer_pos != 0){
-                // Enter send receive here
-                
+                MPI_Sendrecv_replace(&(points[dims * pointsNum - dims * unwantedNum]), dims*toTrade , 
+                MPI_FLOAT, peer, 0, peer, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }     
         }
         
@@ -221,9 +221,10 @@ int main(int argc, char **argv) {
             if(peer_pos != 0){
                 // Enter send receive here
                 // Send from start of your unwanted (toTrade) number of points
-                // Must also swap distances 
-                //MPI_Sendrecv_replace(&buffer, 1, MPI_INT, peer, tag_send, peer,
-                // tag_recv, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                // Must also swap distances
+                // Επιασες το νοημα παω να κανω ανάλυση 
+                MPI_Sendrecv_replace(&(points[dims * pointsNum - dims * unwantedNum]), dims*toTrade , 
+                MPI_FLOAT, peer, 0, peer, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }     
         }
     }
