@@ -61,11 +61,12 @@ int main(int argc, char **argv) {
     dims = info[0];
     pointsNum = info[1];
 
-    // Make a new process struct, to pass the most important values to functions.
-    process proc = {comm_size, comm_rank, dims, pointsNum, mpi_stat101};
+    float *points = (float *) malloc(dims * pointsNum * sizeof(float));
+    float *pivot = (float *) malloc(dims * sizeof(float));
 
-    float *points = malloc(dims * pointsNum * sizeof(float));
-    float *pivot = malloc(dims * sizeof(float));
+    // Make a new process struct, to pass the most important values to functions.
+    process proc = {comm_size, comm_rank, dims, pointsNum, pivot, mpi_stat101};
+
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Split the data from the binary file into processes.
@@ -73,6 +74,9 @@ int main(int argc, char **argv) {
 
     // Select and broadcast pivot.
     bcast_pivot(&proc, pivot, points);
+    for(int i = 0; i < dims; i++) {
+        proc.pivot[i] = pivot[i];
+    }
 
     //Calculate distances from pivot
     float *distances = (float *) malloc(pointsNum * sizeof(float));
@@ -109,19 +113,19 @@ int main(int argc, char **argv) {
     //     printf("\n");
     // }
 
-    if (comm_rank == 0 || comm_rank == 1) {
+    if (comm_rank == 0 || comm_rank == comm_size - 2) {
         printf("Distances before sortByMedian for process #%d\n", comm_rank);
         for (int i = 0; i < pointsNum; i++) {
             printf("%f ", distances[i]);
         }
 
-        // printf("\nPoints before sortByMedian\n");
-        // for (int i = 0; i < pointsNum; i++) {
-        //     for (int j = 700; j < 715; j++) {
-        //         printf("%f ", points[dims * i + j]);
-        //     }
-        //     printf("\n");
-        // }
+        printf("\nPoints before sortByMedian for process #%d\n", comm_rank);
+        for (int i = 0; i < pointsNum; i++) {
+            for (int j = 700; j < 715; j++) {
+                printf("%f ", points[dims * i + j]);
+            }
+            printf("\n");
+        }
 
         // printf("\nisUnwanted before sortByMedian for process #%d\n", comm_rank);
         // for (int i = 0; i < pointsNum; i++) {
@@ -135,15 +139,14 @@ int main(int argc, char **argv) {
 
     // Calculate number of unwanted points and gather all data to all processes.
     // This is the least amount of information needed to complete the transfers.
-    int* unwantedMat = malloc(comm_size*sizeof(int));
+    int *unwantedMat = (int *) malloc(comm_size * sizeof(int));
     int unwantedNum = findUnwantedPoints(isUnwanted, distances, &proc, median);
-    int side ;
     
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Allgather(&unwantedNum, 1, MPI_INT, unwantedMat, 1, MPI_INT, MPI_COMM_WORLD);
 
-    if (comm_rank == 0 || comm_rank == 1) {
-        printf("Distances after sortByMedian for process #%d\n", comm_rank);
+    if (comm_rank == 2 || comm_rank == 5) {
+        printf("Distances before sortByMedian for process #%d\n", comm_rank);
         for (int i = 0; i < pointsNum; i++) {
             printf("%f ", distances[i]);
         }
@@ -165,69 +168,16 @@ int main(int argc, char **argv) {
 
     // ---------- START TESTING DISRIBUTEBYMEDIAN ---------- //
 
-    if(unwantedNum !=0){
-        int my_pos = 0;
-        int peer_pos = 0;
-        int peer = 0;
-        int toTrade = 0;
-    //This part can be part of a function(my_rank, unWantedNum, unWantedMat)
-        if(comm_rank<comm_size/2){
-            // Find how many procs before me have unwanted elements
-            // My_pos > 0
-            for(int i = 0 ; i < comm_rank+1 ; i++){
-                if(unwantedMat[i] != 0) my_pos++;
-            }
+    distributeByMedian(unwantedMat, unwantedNum, points, distances, &proc, median, 0, comm_size);
 
-            // Look at the other side for peer
-            for(int i = comm_size/2 ; i < comm_size ; i++){
-                if(unwantedMat[i] != 0) peer_pos++;
-                
-                if(peer_pos == my_pos){
-                    peer = i;
-                    toTrade = (unwantedNum <= unwantedMat[i]) ? unwantedNum : unwantedMat[i]; 
-                    printf("Proc %d paired with proc %d to trade %d elements\n", comm_rank, i, toTrade);
-                    break;
-                }
-            }
-
-            // if no peer is found after for, wait for next parallel round
-            if(peer_pos != 0){
-                MPI_Sendrecv_replace(&(points[dims * pointsNum - dims * unwantedNum]), dims*toTrade , 
-                MPI_FLOAT, peer, 0, peer, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            }     
+    if (comm_rank == 2 || comm_rank == comm_size - 2) {
+        printf("Distances after sortByMedian for process #%d\n", comm_rank);
+        for (int i = 0; i < pointsNum; i++) {
+            printf("%f ", distances[i]);
         }
-        
-        //If you are on the right half do the above in reverse
-        //This can be written in less lines αλλα κουγιου 
-        else{
-           
-            for(int i = comm_size/2 ; i < comm_rank+1 ; i++){
-                if(unwantedMat[i] != 0) my_pos++;
-            }
-
-            // Look at the other side for peer
-            for(int i = 0 ; i < comm_size/2 ; i++){
-                if(unwantedMat[i] != 0) peer_pos++;
-                
-                if(peer_pos == my_pos){
-                    peer = i;
-                    toTrade = (unwantedNum <= unwantedMat[i]) ? unwantedNum : unwantedMat[i]; 
-                    printf("Proc %d paired with proc %d to trade %d elements\n", comm_rank, i, toTrade);
-                    break;
-                }
-            }
-
-            // if no peer is found after for, wait for next parallel round
-            if(peer_pos != 0){
-                // Enter send receive here
-                // Send from start of your unwanted (toTrade) number of points
-                // Must also swap distances
-                // Επιασες το νοημα παω να κανω ανάλυση 
-                MPI_Sendrecv_replace(&(points[dims * pointsNum - dims * unwantedNum]), dims*toTrade , 
-                MPI_FLOAT, peer, 0, peer, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            }     
-        }
+        printf("\n\n");
     }
+    
 
 
     

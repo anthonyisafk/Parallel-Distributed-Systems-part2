@@ -15,6 +15,7 @@ typedef struct {
     int comm_rank;
     long dims;
     long pointsNum;
+    float *pivot;
 
     MPI_Status *mpi_stat101;
 } process;

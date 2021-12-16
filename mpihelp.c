@@ -84,10 +84,11 @@ int findUnwantedPoints (int *isUnwanted, float *distances, process *p, float med
         } 
         else if (distances[i] == median) {
             isUnwanted[i] = 0;
+            unwantedNum++;
         }
         else {
             isUnwanted[i] = -1;
-            unwantedNum ++;
+            unwantedNum++;
         }
     }
 
@@ -140,5 +141,101 @@ void sortByMedian(float *array, float *points, float median, process *p) {
     }
 }
 
+
+void distributeByMedian(int *unwantedMat, int unwantedNum, float *points, float *distances,
+    process *p, float median, int start, int end) 
+{
+    // Find the side on which the process is on. As we already know, the right half
+    // contains the larger values.
+    bool left_half = p->comm_rank < (end - start) / 2;
+
+    // The start and end of the indices each process scans for a peer.
+    int peerScanStart = (left_half) ? (end - start) / 2 : start; 
+    int peerScanEnd = (left_half) ? end : (end - start) / 2;
+    
+    // The start and end of the indices each process scans for its position
+    // in the side it is on.
+    int posScanStart = (left_half) ? 0 : (end - start) / 2; 
+    int posScanEnd = p->comm_rank + 1;
+
+    // Keep how many points the process had to give in the previous round.
+    int previousRound = unwantedNum;
+
+    bool sorted = false;
+    int round = 0;
+    while(!sorted) {
+        if (unwantedNum != 0) {
+            // The process's position in regards to the number of the elements to be sent out.
+            int my_pos = 0;
+            // The position of the process to which the points will be sent.
+            int peer_pos = 0;
+            int peer = 0;
+            // The number of points that will finally be sent.
+            int toTrade = 0;
+
+            // Find how many procs before me have unwanted elements
+            // My_pos > 0
+            for (int i = posScanStart; i < posScanEnd; i++) {
+                if(unwantedMat[i] != 0) {
+                    my_pos++;
+                } 
+            }
+
+            // Look at the other side for peer
+            for (int i = peerScanStart; i < peerScanEnd; i++) {
+                if (unwantedMat[i] != 0) {
+                    peer_pos++;
+                }
+                
+                if (peer_pos == my_pos) {
+                    peer = i;
+
+                    // Send only as many points as both processes can handle.
+                    toTrade = (unwantedNum <= unwantedMat[i]) ? unwantedNum : unwantedMat[i]; 
+                    printf("Proc %d paired with proc %d to trade %d elements\n", p->comm_rank, i, toTrade);
+                    break;
+                }
+            }
+
+            // If no peer is found after the for loop, wait for next parallel round.
+            // Don't bother sending anything if toTrade == 0.
+            if (peer_pos != 0 && peer_pos < end && toTrade > 0) {
+                MPI_Sendrecv_replace(&(points[p->dims * p->pointsNum - p->dims * unwantedNum]), p->dims * toTrade, 
+                    MPI_FLOAT, peer, 110, peer, 110, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+                // Update how many points the process has to get rid of now.
+                unwantedNum -= toTrade;
+            }
+        }
+
+        // Calculate distances for the new points. Then see how many unwanted points each process has.
+        MPI_Barrier(MPI_COMM_WORLD);
+        for (int i = 0; i < p->pointsNum; i++) {
+            distances[i] = calculateDistanceArray(points, p->dims * i, p->pivot, p->dims);
+        }
+
+        MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Allgather(&unwantedNum, 1, MPI_INT, unwantedMat, 1, MPI_INT, MPI_COMM_WORLD);
+
+        // Check if the algoritm is finished. Otherwise, everybody participates again.
+        for (int i = 0; i < end - start; i++) {
+            if (unwantedMat[i] != 0) {
+                sorted = false;
+                break;
+            } else {
+                sorted = true;
+            }
+        }
+
+        if (p->comm_rank == 0) {
+            printf("\nUnwantedMat round %d:\n", round);
+            for (int i = 0; i < end - start; i++) {
+                printf("%d ", unwantedMat[i]);
+            }
+        }
+        round++;
+    }
+
+}
 
 #endif
