@@ -106,7 +106,7 @@ int findUnwantedPoints (int *isUnwanted, float *distances, process *p, float med
  */ 
 
  //TO DO: add communicator parameters since it will be different for each recursive step 
-void sortByMedian(float *array, float *points, float median, process *p) {
+int *sortByMedian(float *array, float *points, float median, process *p) {
     // Multiply by -1 if the process is looking for small elements to send out.
     int right_half = (p->comm_rank + 1 > p->comm_size / 2) ? -1 : 1; 
 
@@ -140,7 +140,16 @@ void sortByMedian(float *array, float *points, float median, process *p) {
             i++;
         }
     }
-    if(p->comm_rank) printf("pints num - right = %ld\n",p->pointsNum - right);  
+
+    int *result = (int *) malloc(3 * sizeof(int));
+    // Return the number of unwanted points, aka unwantedNum.
+    result[0] = p->pointsNum - right;
+    // Return the number of points equal to the median.
+    result[1] = center + 1 - left;
+    // Return the index of the first median.
+    result[2] = (result[1]) ? left : -1;
+
+    return result;
 }
 
 

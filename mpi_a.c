@@ -101,9 +101,6 @@ int main(int argc, char **argv) {
     MPI_Bcast(&median, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD);
 
-    // The table each process uses to see whether a point it possesses has to be swapped.
-    int *isUnwanted = (int *) malloc(pointsNum * sizeof(int));
-
     if (comm_rank == 0 || comm_rank == comm_size - 2) {
         printf("Distances before sortByMedian for process #%d\n", comm_rank);
         for (int i = 0; i < pointsNum; i++) {
@@ -120,21 +117,26 @@ int main(int argc, char **argv) {
 
         printf("\n\n");
     }
+    int *unwantedPoints = (int *) malloc(pointsNum * sizeof(int));
+    findUnwantedPoints(unwantedPoints, distances, &proc, median);
 
     // Calculate number of unwanted points and gather all data to all processes.
     // This is the least amount of information needed to complete the transfers.
     int *unwantedMat = (int *) malloc(comm_size * sizeof(int));
+    int *medianMat = (int *) malloc(comm_size * sizeof(int));
+    int *medianStartMat = (int *) malloc(comm_size * sizeof(int));
 
     //TODO integrate find unwanted nums to sort using right index
-    sortByMedian(distances, points, median, &proc);
+    int *sortedByMedian = sortByMedian(distances, points, median, &proc);
+    int unwantedNum = sortedByMedian[0]; 
+    int medianNum = sortedByMedian[1]; 
+    int medianStart = sortedByMedian[2]; 
 
-    // To be replace with sort by Median
-    int unwantedNum = findUnwantedPoints(isUnwanted, distances, &proc, median);
-    
-    MPI_Barrier(MPI_COMM_WORLD);
     MPI_Allgather(&unwantedNum, 1, MPI_INT, unwantedMat, 1, MPI_INT, MPI_COMM_WORLD);
+    MPI_Allgather(&medianNum, 1, MPI_INT, medianMat, 1, MPI_INT, MPI_COMM_WORLD);
+    MPI_Allgather(&medianStart, 1, MPI_INT, medianStartMat, 1, MPI_INT, MPI_COMM_WORLD);
 
-    if (comm_rank == 2 || comm_rank == 5) {
+    if (comm_rank == comm_size - 2) {
         printf("Distances before sortByMedian for process #%d\n", comm_rank);
         for (int i = 0; i < pointsNum; i++) {
             printf("%f ", distances[i]);
@@ -147,17 +149,28 @@ int main(int argc, char **argv) {
         }    
         printf("\n");
 
-        printf("\nisUnwanted after sortByMedian for process #%d\n", comm_rank);
+        printf("\nMedianNum matrix\n");
+        for (int i = 0; i < comm_size; i++) {
+            printf("%d ", medianMat[i]);    
+        }    
+        printf("\n");
+
+        printf("\nmedianStart matrix\n");
+        for (int i = 0; i < comm_size; i++) {
+            printf("%d ", medianStartMat[i]);    
+        }    
+        printf("\n");
+
+        printf("\nunwantedPoints matrix\n");
         for (int i = 0; i < pointsNum; i++) {
-            printf("%d ", isUnwanted[i]);
-        }
-        //printf("\nTotal of %d unwanted elements for process #%d\n", unwantedNum, comm_rank);
-        printf("\n\n");
+            printf("%d ", unwantedPoints[i]);    
+        }    
+        printf("\n");
     }
 
     // ---------- START TESTING DISRIBUTEBYMEDIAN ---------- //
 
-    distributeByMedian(unwantedMat, unwantedNum, points, distances, &proc, median, 0, comm_size);
+    // distributeByMedian(unwantedMat, unwantedNum, points, distances, &proc, median, 0, comm_size);
 
     if (comm_rank == 2 || comm_rank == comm_size - 2) {
         printf("Distances after sortByMedian for process #%d\n", comm_rank);
