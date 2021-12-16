@@ -31,6 +31,7 @@ void bcast_dims_points(FILE *file, long *info, int comm_rank, int comm_size) {
 // Read the binary file in easier-to-handle chunks and send them out to the processes.
 void split_into_processes(FILE *file, process *p, float *points) {
     if (p->comm_rank == 0) {
+
         // Send the first batch of floats back to master.
         fread(points, sizeof(float), p->dims * p->pointsNum , file);
         MPI_Sendrecv(points, p->dims * p->pointsNum, MPI_FLOAT, 0, 101, points,
@@ -49,6 +50,7 @@ void split_into_processes(FILE *file, process *p, float *points) {
 
 // Let the master select and broadcast the pivot point.
 void bcast_pivot(process *p, float *pivot, float *points) {
+
     // Pick a pivot and broadcast it 
     if (p->comm_rank == 0) {
         int pivotIndex = rand() % p->pointsNum;
@@ -115,8 +117,7 @@ void sortByMedian(float *array, float *points, float median, process *p) {
     // The index of the leftmost side that is sorted.
 	long left = 0;
     // Keeps track of the last median encountered.
-	long center = -1;
-
+	long center = -1;                    
     while (i != right) {
         if (right_half * array[i] < right_half * median) {
             swapFloat(array, i, left, 1);
@@ -139,6 +140,7 @@ void sortByMedian(float *array, float *points, float median, process *p) {
             i++;
         }
     }
+    if(p->comm_rank) printf("pints num - right = %ld\n",p->pointsNum - right);  
 }
 
 
@@ -159,12 +161,15 @@ void distributeByMedian(int *unwantedMat, int unwantedNum, float *points, float 
     int posScanEnd = p->comm_rank + 1;
 
     // Keep how many points the process had to give in the previous round.
-    int previousRound = unwantedNum;
+    int previousRound = unwantedMat[p->comm_rank];
 
     bool sorted = false;
+    bool myhalfsorted = false;
+    bool otherhalfsorted = false;
+
     int round = 0;
     while(!sorted) {
-        if (unwantedNum != 0) {
+        if (unwantedMat[p->comm_rank] != 0) {
             // The process's position in regards to the number of the elements to be sent out.
             int my_pos = 0;
             // The position of the process to which the points will be sent.
@@ -191,20 +196,20 @@ void distributeByMedian(int *unwantedMat, int unwantedNum, float *points, float 
                     peer = i;
 
                     // Send only as many points as both processes can handle.
-                    toTrade = (unwantedNum <= unwantedMat[i]) ? unwantedNum : unwantedMat[i]; 
+                    toTrade = (unwantedMat[p->comm_rank] <= unwantedMat[i]) ? unwantedMat[p->comm_rank] : unwantedMat[i]; 
                     printf("Proc %d paired with proc %d to trade %d elements\n", p->comm_rank, i, toTrade);
                     break;
                 }
             }
 
-            // If no peer is found after the for loop, wait for next parallel round.
-            // Don't bother sending anything if toTrade == 0.
-            if (peer_pos != 0 && peer_pos < end && toTrade > 0) {
-                MPI_Sendrecv_replace(&(points[p->dims * p->pointsNum - p->dims * unwantedNum]), p->dims * toTrade, 
+            // If peer pos is less than process position that element will not participate in
+            // this parallel round
+            if (peer_pos == my_pos) {
+                MPI_Sendrecv_replace(&(points[p->dims * p->pointsNum - p->dims * unwantedMat[p->comm_rank]]), p->dims * toTrade, 
                     MPI_FLOAT, peer, 110, peer, 110, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
                 // Update how many points the process has to get rid of now.
-                unwantedNum -= toTrade;
+                unwantedMat[p->comm_rank] -= toTrade;
             }
         }
 
@@ -215,9 +220,13 @@ void distributeByMedian(int *unwantedMat, int unwantedNum, float *points, float 
         }
 
         MPI_Barrier(MPI_COMM_WORLD);
-        MPI_Allgather(&unwantedNum, 1, MPI_INT, unwantedMat, 1, MPI_INT, MPI_COMM_WORLD);
-
-        // Check if the algoritm is finished. Otherwise, everybody participates again.
+        MPI_Allgather(&unwantedMat[p->comm_rank], 1, MPI_INT, unwantedMat, 1, MPI_INT, MPI_COMM_WORLD);
+        // [*1* 2 3 | 2 1 5 ]
+        // if both sorted -> break
+        // if one half sorted && one half not sorted 
+        //      swapWithMedians(int* mediansMat, int* mediansStart, )
+        //[0 0 0 0 | 0 1 0 2]   unwantedMat
+        //     [0 4 0 2 | 0 3 0 3]   medians 
         for (int i = 0; i < end - start; i++) {
             if (unwantedMat[i] != 0) {
                 sorted = false;
