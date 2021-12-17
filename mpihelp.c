@@ -21,7 +21,7 @@ void bcast_dims_points(FILE *file, long *info, int comm_rank, int comm_size) {
         // Split the points evenly between each process.
         // info[1] /= comm_size;
 
-        info[1] = 4; // set the points per process to 200.
+        info[1] = 100; // set the points per process to 200.
     } 
 
 	MPI_Bcast(info, 2, MPI_LONG, 0, MPI_COMM_WORLD);
@@ -153,9 +153,15 @@ int *sortByMedian(float *array, float *points, float median, process *p) {
 }
 
 
-void distributeByMedian(int *unwantedMat, int unwantedNum, float *points, float *distances,
+void distributeByMedian(int *unwantedMat, float *points, float *distances,
     process *p, float median, int start, int end) 
 {
+    // End of recursion
+    if(p->comm_size == 1){
+        printf("All points are sorted! \n");
+        return ;
+    }
+
     // Find the side on which the process is on. As we already know, the right half
     // contains the larger values.
     bool left_half = p->comm_rank < (end - start) / 2;
@@ -211,7 +217,7 @@ void distributeByMedian(int *unwantedMat, int unwantedNum, float *points, float 
                 }
             }
 
-            // If peer pos is less than process position that element will not participate in
+            // If peer pos is less than process position then process will not participate in
             // this parallel round
             if (peer_pos == my_pos) {
                 MPI_Sendrecv_replace(&(points[p->dims * p->pointsNum - p->dims * unwantedMat[p->comm_rank]]), p->dims * toTrade, 
@@ -223,20 +229,14 @@ void distributeByMedian(int *unwantedMat, int unwantedNum, float *points, float 
         }
 
         // Calculate distances for the new points. Then see how many unwanted points each process has.
-        MPI_Barrier(MPI_COMM_WORLD);
         for (int i = 0; i < p->pointsNum; i++) {
             distances[i] = calculateDistanceArray(points, p->dims * i, p->pivot, p->dims);
         }
 
-        MPI_Barrier(MPI_COMM_WORLD);
         MPI_Allgather(&unwantedMat[p->comm_rank], 1, MPI_INT, unwantedMat, 1, MPI_INT, MPI_COMM_WORLD);
-        // [*1* 2 3 | 2 1 5 ]
-        // if both sorted -> break
-        // if one half sorted && one half not sorted 
-        //      swapWithMedians(int* mediansMat, int* mediansStart, )
-        //[0 0 0 0 | 0 1 0 2]   unwantedMat
-        //     [0 4 0 2 | 0 3 0 3]   medians 
-        for (int i = 0; i < end - start; i++) {
+
+        
+        for (int i = start; i < end ; i++) {
             if (unwantedMat[i] != 0) {
                 sorted = false;
                 break;
@@ -245,14 +245,30 @@ void distributeByMedian(int *unwantedMat, int unwantedNum, float *points, float 
             }
         }
 
+        // Style points
         if (p->comm_rank == 0) {
             printf("\nUnwantedMat round %d:\n", round);
             for (int i = 0; i < end - start; i++) {
                 printf("%d ", unwantedMat[i]);
             }
+            printf("\n");
         }
         round++;
     }
+
+
+    // Once sorted split the communicator in 2 and call distributeByMedian for each half
+    // int colour = (p->comm_size/(2*p->comm_rank)) //0 if in left half 1 if in right half
+    // int key = p->comm_rank;
+    
+    // MPI_Comm new_comm;
+    // MPI_Comm_split(MPI_COMM_WORLD, colour, key, &new_comm);
+ 
+    // // Get my rank in the new communicator
+    // int my_new_comm_rank;
+    // MPI_Comm_rank(new_comm, &my_new_comm_rank);
+
+    
 
 }
 
