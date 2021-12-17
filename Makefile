@@ -2,12 +2,13 @@ MPICC = mpicc
 MATH = -lm
 INCLUDES = helpers.c mpihelp.c
 
-default: all
+default: mpi_a
 
 mpi_a:
 	$(MPICC) mpi_a.c -o mpi_a.o $(INCLUDES) $(MATH)
 
-all: mpi_a 
+suppress_errors:
+	export OMPI_MCA_btl_vader_single_copy_mechanism=none
 
 .PHONY: clean
 
