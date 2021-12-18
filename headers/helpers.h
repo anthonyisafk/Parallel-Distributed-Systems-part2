@@ -1,6 +1,8 @@
 #ifndef HELPERS_H
 #define HELPERS_H
 
+int maxPower(int num, int base, int rep);
+
 float calculateDistanceArray(float *p, int start, float *ref, uint dims);
 
 uint partition(float *arr, uint low, uint high);

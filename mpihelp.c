@@ -19,9 +19,9 @@ void bcast_dims_points(FILE *file, long *info, int comm_rank, int comm_size) {
         fread(info, sizeof(long), 2, file);
 
         // Split the points evenly between each process.
-        // info[1] /= comm_size;
-
-        info[1] = 100; // set the points per process to 200.
+        // Only read the closest power of 2, not all of them.
+        int totalPoints = pow(2, maxPower(info[1], 2, 0));
+        info[1] = totalPoints / comm_size;
     } 
 
 	MPI_Bcast(info, 2, MPI_LONG, 0, MPI_COMM_WORLD);
@@ -31,7 +31,6 @@ void bcast_dims_points(FILE *file, long *info, int comm_rank, int comm_size) {
 // Read the binary file in easier-to-handle chunks and send them out to the processes.
 void split_into_processes(FILE *file, process *p, float *points) {
     if (p->comm_rank == 0) {
-
         // Send the first batch of floats back to master.
         fread(points, sizeof(float), p->dims * p->pointsNum , file);
         MPI_Sendrecv(points, p->dims * p->pointsNum, MPI_FLOAT, 0, 101, points,
@@ -42,7 +41,7 @@ void split_into_processes(FILE *file, process *p, float *points) {
             fread(points, sizeof(float), p->dims * p->pointsNum , file);
             MPI_Send(points, p->dims * p->pointsNum, MPI_FLOAT, i, 101, MPI_COMM_WORLD);
         }
-    } else{
+    } else {
         MPI_Recv(points, p->dims * p->pointsNum, MPI_FLOAT, 0, 101, MPI_COMM_WORLD, p->mpi_stat101);
     }
 }
@@ -143,7 +142,8 @@ int *sortByMedian(float *array, float *points, float median, process *p) {
 
     int *result = (int *) malloc(3 * sizeof(int));
     // Return the number of unwanted points, aka unwantedNum.
-    result[0] = p->pointsNum - right;
+    // Also including elements that are equal to the median for now.
+    result[0] = p->pointsNum - left;
     // Return the number of points equal to the median.
     result[1] = center + 1 - left;
     // Return the index of the first median.
@@ -153,35 +153,77 @@ int *sortByMedian(float *array, float *points, float median, process *p) {
 }
 
 
-void distributeByMedian(int *unwantedMat, float *points, float *distances,
-    process *p, float median, int start, int end) 
+// Splits a group of processes to two halves.
+void splitGroup(MPI_Comm *comm, MPI_Comm *new_comm, int *my_new_comm_rank, int *my_new_comm_size,
+    int colour, int key, process *p) 
 {
-    // End of recursion
+    // 0 if in left half 1 if in right half.
+    colour = ((p->comm_rank + 1) * 2 <= p->comm_size) ? 0 : 1; 
+    // Assign the same keys to processes that lie in the same position of each half.
+    // key = ((p->comm_rank + 1) * 2 <= p->comm_size) ? p->comm_rank : p->comm_rank - p->comm_size / 2;
+    key = p->comm_rank;
+    
+    MPI_Comm_split(*comm, colour, key, new_comm);
+ 
+    // Get my rank in the new communicator. Update the comm_rank and comm_size placeholders,
+    // to be used in the next recursive call of the function.
+    MPI_Comm_rank(*new_comm, my_new_comm_rank);
+    MPI_Comm_size(*new_comm, my_new_comm_size);
+    p->comm_rank = *my_new_comm_rank;
+    p->comm_size = *my_new_comm_size;
+}
+
+
+// Finds the new median after a group of processes has been sorted and split.
+void findNewMedian(float *points, int *unwantedMat, float *distances, float *dist_array,
+    float median, MPI_Comm new_comm, process *p) 
+{
+    for (int i = 0; i < p->pointsNum; i++) {
+        distances[i] = calculateDistanceArray(points, p->dims * i, p->pivot, p->dims);
+    }
+
+    if (p->comm_rank == 0) {
+        dist_array = (float *) malloc(p->pointsNum * p->comm_size * sizeof(float));
+    }
+    MPI_Gather(distances, p->pointsNum, MPI_FLOAT, dist_array, p->pointsNum, MPI_FLOAT, 0, new_comm);
+
+    if (p->comm_rank == 0) {
+        median = quickselect(dist_array, p->pointsNum * p->comm_size - 1);
+        printf("\nMedian distance is %f\n\n", median);
+    }
+    // Broadcast median.
+    MPI_Bcast(&median, 1, MPI_FLOAT, 0, new_comm);
+
+    unwantedMat = (int *) realloc(unwantedMat ,p->comm_size * sizeof(int));
+    int *newSortedByMedian = sortByMedian(distances, points, median, p);
+
+    int newUnwantedNum = newSortedByMedian[0];  
+
+    MPI_Allgather(&newUnwantedNum, 1, MPI_INT, unwantedMat, 1, MPI_INT, new_comm);
+}
+
+
+void distributeByMedian(int *unwantedMat, float *points, float *distances, process *p, float median, MPI_Comm comm) {
+    // End of recursion.
     if(p->comm_size == 1){
         printf("All points are sorted! \n");
-        return ;
+        return;
     }
 
     // Find the side on which the process is on. As we already know, the right half
     // contains the larger values.
-    bool left_half = p->comm_rank < (end - start) / 2;
+    bool left_half = p->comm_rank < p->comm_size / 2;
 
     // The start and end of the indices each process scans for a peer.
-    int peerScanStart = (left_half) ? (end - start) / 2 : start; 
-    int peerScanEnd = (left_half) ? end : (end - start) / 2;
+    int peerScanStart = (left_half) ? p->comm_size / 2 : 0; 
+    int peerScanEnd = (left_half) ? p->comm_size : p->comm_size / 2;
     
     // The start and end of the indices each process scans for its position
     // in the side it is on.
-    int posScanStart = (left_half) ? 0 : (end - start) / 2; 
+    int posScanStart = (left_half) ? 0 : p->comm_size / 2; 
     int posScanEnd = p->comm_rank + 1;
 
-    // Keep how many points the process had to give in the previous round.
-    int previousRound = unwantedMat[p->comm_rank];
-
     bool sorted = false;
-    bool myhalfsorted = false;
-    bool otherhalfsorted = false;
-
     int round = 0;
     while(!sorted) {
         if (unwantedMat[p->comm_rank] != 0) {
@@ -221,22 +263,16 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances,
             // this parallel round
             if (peer_pos == my_pos) {
                 MPI_Sendrecv_replace(&(points[p->dims * p->pointsNum - p->dims * unwantedMat[p->comm_rank]]), p->dims * toTrade, 
-                    MPI_FLOAT, peer, 110, peer, 110, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    MPI_FLOAT, peer, 110, peer, 110, comm, MPI_STATUS_IGNORE);
 
                 // Update how many points the process has to get rid of now.
                 unwantedMat[p->comm_rank] -= toTrade;
             }
         }
 
-        // Calculate distances for the new points. Then see how many unwanted points each process has.
-        for (int i = 0; i < p->pointsNum; i++) {
-            distances[i] = calculateDistanceArray(points, p->dims * i, p->pivot, p->dims);
-        }
+        MPI_Allgather(&unwantedMat[p->comm_rank], 1, MPI_INT, unwantedMat, 1, MPI_INT, comm);
 
-        MPI_Allgather(&unwantedMat[p->comm_rank], 1, MPI_INT, unwantedMat, 1, MPI_INT, MPI_COMM_WORLD);
-
-        
-        for (int i = start; i < end ; i++) {
+        for (int i = 0; i < p->comm_size ; i++) {
             if (unwantedMat[i] != 0) {
                 sorted = false;
                 break;
@@ -248,7 +284,7 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances,
         // Style points
         if (p->comm_rank == 0) {
             printf("\nUnwantedMat round %d:\n", round);
-            for (int i = 0; i < end - start; i++) {
+            for (int i = 0; i < p->comm_size; i++) {
                 printf("%d ", unwantedMat[i]);
             }
             printf("\n");
@@ -256,20 +292,72 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances,
         round++;
     }
 
+    // --------------- SPLIT INTO TWO HALVES --------------- //
 
-    // Once sorted split the communicator in 2 and call distributeByMedian for each half
-    // int colour = (p->comm_size/(2*p->comm_rank)) //0 if in left half 1 if in right half
-    // int key = p->comm_rank;
-    
-    // MPI_Comm new_comm;
-    // MPI_Comm_split(MPI_COMM_WORLD, colour, key, &new_comm);
- 
-    // // Get my rank in the new communicator
-    // int my_new_comm_rank;
-    // MPI_Comm_rank(new_comm, &my_new_comm_rank);
+    MPI_Comm new_comm;
+    int my_new_comm_rank, my_new_comm_size;
+    int colour, key;
 
-    
+    splitGroup(&comm, &new_comm, &my_new_comm_rank, &my_new_comm_size, colour, key, p);
 
+    // --------------- RECALCULATE DISTANCES AND UNWANTED PONTS --------------- //
+
+    float *dist_array = NULL;
+    if (p->comm_rank == 0) {
+        dist_array = (float *) malloc(p->pointsNum * p->comm_size * sizeof(float));
+    }
+    findNewMedian(points, unwantedMat, distances, dist_array, median, new_comm, p);
+
+    // --------------- CALL THE RECURSION --------------- //
+
+    distributeByMedian(unwantedMat, points, distances, p, median, new_comm);
+}
+
+
+void checkForOrder(float *distances, float *personalMin, float *personalMax, float *nextMin, MPI_Win *window, 
+    process *p, bool *orders, bool *totalOrder, bool *outOfOrder)
+{
+    if (p->comm_rank == 0) {
+        *personalMax = kthSmallest(distances, 0, p->pointsNum - 1, p->pointsNum - 1);
+    }
+    else if (p->comm_rank == p->comm_size - 1) {
+        *personalMin = kthSmallest(distances, 0, p->pointsNum - 1, 0);
+    } else {
+        *personalMax = kthSmallest(distances, 0, p->pointsNum - 1, p->pointsNum - 1);
+        *personalMin = kthSmallest(distances, 0, p->pointsNum - 1, 0);
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Win_create(&personalMin, sizeof(float), sizeof(float), MPI_INFO_NULL, MPI_COMM_WORLD, window);
+    MPI_Win_fence(0, *window);
+
+    if (p->comm_rank != p->comm_size - 1) {
+        MPI_Get(nextMin, 1, MPI_FLOAT, p->comm_rank + 1, 0, 1, MPI_FLOAT, *window);
+    }
+
+    MPI_Win_fence(0, *window);
+
+    if (p->comm_rank != p->comm_size - 1) {
+        if (*personalMax > *nextMin) {
+            *outOfOrder = true;
+        }
+    }
+
+    MPI_Gather(&outOfOrder, 1, MPI_C_BOOL, orders, 1, MPI_C_BOOL, 0, MPI_COMM_WORLD);
+    if (p->comm_rank == 0) {
+        for (int i = 0; i < p->comm_size; i++) {
+            if (orders[i]) {
+               *totalOrder = false;
+                break;
+            }
+        }
+
+        if(*totalOrder) {
+            printf("\n\nSELF CHECK HAS FOUND THE PROCESSES TO BE IN ORDER.\n\n");
+        } else {
+            printf("\n\nTHE PROCESSES HAVE BEEN FOUND TO BE OUT OF ORDER.\n\n");
+        }
+    }
 }
 
 #endif

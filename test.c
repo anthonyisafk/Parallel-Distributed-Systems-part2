@@ -1,7 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
  
 #define SWAP(x, y) { float temp = x; x = y; y = temp; }
+
+int maxPower(int num, int base, int rep) {
+	if (pow(base, rep) > num) {
+		return -1;
+	} 
+	else if (pow(base, rep) == num) {
+		return 0;
+	} else {
+		return 1 + maxPower(num, base, rep+1);
+	}
+}
+
  
 // Partition using Lomuto partition scheme
 int partition(float* a, int left, int right, int pIndex)
@@ -120,6 +133,9 @@ int main(){
     printf("  %f \n", mid2);
 	printf("%f", quickselect(error, end));
 
+    int test_pow = 69;
+    int maxPow = maxPower(test_pow, 2, 0);
+    printf("\nMax power of %d is %d\n", test_pow, maxPow);
 
     
 }

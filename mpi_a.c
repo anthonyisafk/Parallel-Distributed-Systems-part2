@@ -77,32 +77,27 @@ int main(int argc, char **argv) {
         proc.pivot[i] = pivot[i];
     }
 
-    //Calculate distances from pivot
-    float *distances = (float *) malloc(pointsNum * sizeof(float));
+    // Calculate the first distances from pivot and send them all to the master.
+    float *distances = (float *) calloc(pointsNum, sizeof(float));
+    float *dist_arr = NULL;
+
     for (int i = 0; i < pointsNum; i++) {
         distances[i] = calculateDistanceArray(points, dims * i, pivot, dims);
     }
-
-
-//////////////////// From this point on everything must be integrated in the recursive function //////////////////////////////////////
-
-
-    // Initialize the array that will keep all the distances for the master to find the median.
-    // It only needs to be initialized in the case of the master, to conserve memory.
-    float *dist_arr = NULL;
     if (comm_rank == 0) {
         dist_arr = malloc(pointsNum * comm_size * sizeof(float));
     }
+
     MPI_Gather(distances, pointsNum, MPI_FLOAT, dist_arr, pointsNum, MPI_FLOAT, 0, MPI_COMM_WORLD);
     
     if (comm_rank == 0) {
-        printf("\n All distances: \n");
-        for(int i = 0 ; i < pointsNum * comm_size ; i++){
-            printf("%f ", dist_arr[i]);
-        }
+        // printf("\n All distances: \n");
+        // for(int i = 0 ; i < pointsNum * comm_size ; i++){
+        //     printf("%f ", dist_arr[i]);
+        // }
 
         median = quickselect(dist_arr, pointsNum * comm_size - 1);
-        //printf("\nMedian distance is %f\n\n", median);
+        printf("\nMedian distance is %f\n\n", median);
     }
 
     // Broadcast median.
@@ -118,34 +113,90 @@ int main(int argc, char **argv) {
 
     MPI_Allgather(&unwantedNum, 1, MPI_INT, unwantedMat, 1, MPI_INT, MPI_COMM_WORLD);
 
-    if (comm_rank == comm_size - 2) {
-        // printf("Distances before sortByMedian for process #%d\n", comm_rank);
-        // for (int i = 0; i < pointsNum; i++) {
-        //     printf("%f ", distances[i]);
-        // }
-        // printf("\n\n");
+    // if (comm_rank == comm_size - 2) {
+    //     printf("Distances before sortByMedian for process #%d\n", comm_rank);
+    //     for (int i = 0; i < pointsNum; i++) {
+    //         printf("%f ", distances[i]);
+    //     }
+    //     printf("\n\n");
 
-        printf("\nUnwanted matrix\n");
-        for (int i = 0; i < comm_size; i++) {
-            printf("%d ", unwantedMat[i]);    
-        }    
-        printf("\n");  
-    }
+    //     printf("\nUnwanted matrix\n");
+    //     for (int i = 0; i < comm_size; i++) {
+    //         printf("%d ", unwantedMat[i]);    
+    //     }    
+    //     printf("\n");  
+    // }
 
     // ---------- START TESTING DISRIBUTEBYMEDIAN ---------- //
 
-    distributeByMedian(unwantedMat, points, distances, &proc, median, 0, comm_size);
+    distributeByMedian(unwantedMat, points, distances, &proc, median, MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
 
-    if (comm_rank == 2 || comm_rank == comm_size - 2) {
-        printf("Distances after sortByMedian for process #%d\n", comm_rank);
-        for (int i = 0; i < pointsNum; i++) {
-            printf("%f ", distances[i]);
-        }
-        printf("\n\n");
+    // if (comm_rank == 2 || comm_rank == comm_size - 2) {
+    //     printf("Distances after sortByMedian for process #%d\n", comm_rank);
+    //     for (int i = 0; i < pointsNum; i++) {
+    //         printf("%f ", distances[i]);
+    //     }
+    //     printf("\n\n");
+    // }
+
+    // Collect each process's minimum and maximum value, to compare them.
+    // This algorithm self-checks for correct execution.
+    float personalMin, personalMax;
+    float nextMin;
+    MPI_Win window;
+
+    // The flag a process raises if its personalMax is larger than the next personalMin.
+    bool outOfOrder = false;
+    bool totalOrder = true;
+    bool *orders = NULL;
+    if (comm_rank == 0) {
+        orders = (bool *) malloc(comm_size * sizeof(bool));
     }
-    
 
+    // checkForOrder(distances, &personalMin, &personalMax, &nextMin, &window, &proc, orders, &totalOrder, &outOfOrder);
 
+    if (comm_rank == 0) {
+        personalMax = kthSmallest(distances, 0, proc.pointsNum - 1, proc.pointsNum - 1);
+    }
+    else if (comm_rank == comm_size - 1) {
+        personalMin = kthSmallest(distances, 0, proc.pointsNum - 1, 0);
+    } else {
+        personalMax = kthSmallest(distances, 0, proc.pointsNum - 1, proc.pointsNum - 1);
+        personalMin = kthSmallest(distances, 0, proc.pointsNum - 1, 0);
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Win_create(&personalMin, sizeof(float), sizeof(float), MPI_INFO_NULL, MPI_COMM_WORLD, &window);
+    MPI_Win_fence(0, window);
+
+    if (comm_rank != comm_size - 1) {
+        MPI_Get(&nextMin, 1, MPI_FLOAT, comm_rank + 1, 0, 1, MPI_FLOAT, window);
+    }
+
+    MPI_Win_fence(0, window);
+
+    if (comm_rank != comm_size - 1) {
+        if (personalMax > nextMin) {
+            outOfOrder = true;
+        }
+    }
+
+    MPI_Gather(&outOfOrder, 1, MPI_C_BOOL, orders, 1, MPI_C_BOOL, 0, MPI_COMM_WORLD);
+    if (comm_rank == 0) {
+        for (int i = 0; i < comm_size; i++) {
+            if (orders[i]) {
+                totalOrder = false;
+                break;
+            }
+        }
+
+        if(totalOrder) {
+            printf("\n\nSELF CHECK HAS FOUND THE PROCESSES TO BE IN ORDER.\n\n");
+        } else {
+            printf("\n\nTHE PROCESSES HAVE BEEN FOUND TO BE OUT OF ORDER.\n\n");
+        }
+    }
 
 	MPI_Finalize();
 	return 0;

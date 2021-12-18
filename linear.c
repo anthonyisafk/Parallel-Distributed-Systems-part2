@@ -30,6 +30,8 @@ float calculateDistanceArray(float *p, int start, float *ref, uint dims) {
 
 	return distance;
 }
+
+
 // Partition using Lomuto partition scheme
 int partition(float* a, int left, int right, int pIndex)
 {
@@ -61,6 +63,7 @@ int partition(float* a, int left, int right, int pIndex)
     // return `pIndex` (index of the pivot element)
     return pIndex;
 }
+
  
 // Returns the k'th smallest element in the list within `left…right`
 // (i.e., left <= k <= right). The search space within the array is
@@ -94,6 +97,7 @@ float kthSmallest(float* nums, int left, int right, int k)
     }
 }
 
+
 float quickselect(float *distances, uint end) {
 	// The index where the median is supposed to be.
 	uint mid_index = (end+1) / 2;
@@ -116,7 +120,7 @@ float quickselect(float *distances, uint end) {
 }
 
 
-void distributebyMedian(float* points, float* distances, long dims, long pointsPerProc, int pointsTotal, int start, int end){
+void distributebyMedian(float* points, float* distances, long dims, long pointsPerProc, int pointsTotal, int start, int end) {
     if(end-start == 1) return;
 
     // Quickselect from dist_copy matrix
@@ -131,11 +135,11 @@ void distributebyMedian(float* points, float* distances, long dims, long pointsP
     // find a smaller one on the right side and swap the corresponding points.
     // Also swap the distances to avoid recalculations.
     // Essentially for (half the points)
-    int right = (end-start)/2*pointsPerProc;
+    int right = (end - start) / 2 * pointsPerProc;
     for (int i = 0; i < (end-start) * pointsPerProc / 2; i++){
         
         // larger value found on the left half
-        if(distances[start*pointsPerProc + i] > median){
+        if(distances[start * pointsPerProc + i] > median){
             
             // as long as small value is not found 
             // look at the next index
@@ -144,10 +148,10 @@ void distributebyMedian(float* points, float* distances, long dims, long pointsP
             }
             
             //once smaller distance is found we will exit and swap distances and points
-            swapFloat(distances, start*pointsPerProc + i, right, 1);
+            swapFloat(distances, start * pointsPerProc + i, right, 1);
 
             //Not sure about this one, not checked!!! Prob about right
-            swapFloat(points, (start*pointsPerProc + i)*dims, right*dims, dims);
+            swapFloat(points, (start * pointsPerProc + i) * dims, right * dims, dims);
 
 
         }
@@ -174,7 +178,7 @@ int main(int argc, char **argv) {
     fread(&pointsTotal, sizeof(long), 1, file);
 
     // Split the points evenly between each process.    
-    int pointsPerProc = 4; // set the points per process to 100
+    int pointsPerProc = 150; // set the points per process to 100
     
     int processes =  atoi(argv[1]);
     
