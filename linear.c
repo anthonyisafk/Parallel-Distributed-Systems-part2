@@ -6,6 +6,19 @@
 
 #define SWAP(x, y) { float temp = x; x = y; y = temp; }
 
+// Calculates the max power of base that's closer to num.
+int maxPower(int num, int base, int rep) {
+	if (pow(base, rep) > num) {
+		return -1;
+	} 
+	else if (pow(base, rep) == num) {
+		return 0;
+	} else {
+		return 1 + maxPower(num, base, rep+1);
+	}
+}
+
+
 /**
  * Swaps two values in an array. 
  * @param len: Used if we want to swap chunks of data, rather than just a single value.
@@ -108,7 +121,7 @@ float quickselect(float *distances, uint end) {
 		float mid1 = kthSmallest(distances, 0, end, mid_index - 1);
 		float mid2 = kthSmallest(distances, 0, end, mid_index);
 		
-		printf("mid1 = %f, mid2 = %f\n", mid1, mid2);
+		//printf("mid1 = %f, mid2 = %f\n", mid1, mid2);
 
 	
 		return (float) ((mid1 + mid2) / 2);
@@ -121,9 +134,7 @@ float quickselect(float *distances, uint end) {
 
 
 void distributebyMedian(float* points, float* distances, long dims, long pointsPerProc, int pointsTotal, int start, int end){
-    printf("Start = %d End = %d\n", start, end);
-
-
+    
     // Quickselect from dist_copy matrix
     float* dist_copy = malloc( (end-start) * pointsPerProc * sizeof(float));
 
@@ -137,11 +148,13 @@ void distributebyMedian(float* points, float* distances, long dims, long pointsP
     // find a smaller one on the right side and swap the corresponding points.
     // Also swap the distances to avoid recalculations.
     // Essentially for (half the points)
-    int right = (end-start)/2*pointsPerProc;
-    for (int i = 0; i < (end-start) * pointsPerProc / 2; i++){
+    int right = (start + end) * pointsPerProc / 2;
+
+
+    for (int i = start*pointsPerProc; i < (start + end) * pointsPerProc / 2; i++){
         
         // Larger value found on the left half
-        if(distances[start*pointsPerProc + i] > median){
+        if(distances[i] > median){
             
             // as long as small value is not found 
             // on right half look at the next index
@@ -150,11 +163,10 @@ void distributebyMedian(float* points, float* distances, long dims, long pointsP
             }
             
             // Once smaller distance is found we will exit and swap distances and points
-            printf("Swapping %f  with %f \n", distances[start*pointsPerProc + i], distances[right]);
-            swapFloat(distances, start*pointsPerProc + i, right, 1);
+            swapFloat(distances, i, right, 1);
 
             //Not sure about this one, not checked!!! Prob about right
-           // swapFloat(points, (start*pointsPerProc + i)*dims, right*dims, dims);
+            swapFloat(points, i*dims, right*dims, dims);
 
 
         }
@@ -163,20 +175,15 @@ void distributebyMedian(float* points, float* distances, long dims, long pointsP
     // For now let's say start and end will refere to "process"
     // e.g. looking at left leafs for 8 procs (0,8)->(0,4)->(0,2)->(0,1)=return;
     
+    
     //Recursion split is good
     if(end-start == 2){
-        //printf("Returning for Start = %d End = %d\n", start, end);
         return;
     } 
-
-    for (int i = 0; i < pointsTotal; i++){
-        printf("%f ", distances[i]);        
-    }
 
     distributebyMedian(points, distances, dims, pointsPerProc, pointsTotal, start,  start+(end-start)/2);
     distributebyMedian(points, distances, dims, pointsPerProc, pointsTotal, start+(end-start)/2,  end);
 }
-
 
 
 
@@ -190,12 +197,15 @@ int main(int argc, char **argv) {
     fread(&dims, sizeof(long), 1, file);
     fread(&pointsTotal, sizeof(long), 1, file);
 
-    // Split the points evenly between each process.    
-    int pointsPerProc = 4; // set the points per process to 100
-    
+
+    pointsTotal = pow(2, maxPower(pointsTotal, 2, 0));
+
     int processes =  atoi(argv[1]);
-    
-    pointsTotal = processes * pointsPerProc ;// For testing only
+
+    // Split the points evenly between each process.    
+    int pointsPerProc = pointsTotal/processes; 
+
+    printf("Points total = %ld, ppp = %d", pointsTotal, pointsPerProc);
 
     // Huge array containing all the points
     float *points = (float *) malloc(dims * pointsTotal * sizeof(float)); //For end code
@@ -203,7 +213,7 @@ int main(int argc, char **argv) {
 
     // Pick random point from first "process"
     int pivotIndex = rand() % pointsPerProc;
-    printf("Pivot index is %d\n", pivotIndex);
+    //printf("Pivot index is %d\n", pivotIndex);
 
     float* pivot = malloc(dims*sizeof(float));
     for (int i = 0; i < dims; i++){
@@ -213,7 +223,7 @@ int main(int argc, char **argv) {
     float* distances = malloc(pointsTotal*sizeof(float));
     for (int i = 0; i < pointsTotal; i++){
         distances[i] = calculateDistanceArray(points, i*dims, pivot, dims);
-        printf("%f ", distances[i]);        
+        //printf("%f ", distances[i]);        
     }
     printf("\n\n");
 
@@ -222,7 +232,7 @@ int main(int argc, char **argv) {
     
     printf("\n\n");
     for (int i = 0; i < pointsTotal; i++){
-        printf("%f ", distances[i]);        
+        //printf("%f ", distances[i]);        
     }
 
     
