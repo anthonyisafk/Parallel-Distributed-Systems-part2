@@ -64,7 +64,7 @@ int partition(float* a, int left, int right, int pIndex)
     return pIndex;
 }
 
- 
+
 // Returns the k'th smallest element in the list within `left…right`
 // (i.e., left <= k <= right). The search space within the array is
 // changing for each round – but the list is still the same size.
@@ -120,38 +120,41 @@ float quickselect(float *distances, uint end) {
 }
 
 
-void distributebyMedian(float* points, float* distances, long dims, long pointsPerProc, int pointsTotal, int start, int end) {
-    if(end-start == 1) return;
+void distributebyMedian(float* points, float* distances, long dims, long pointsPerProc, int pointsTotal, int start, int end){
+    printf("Start = %d End = %d\n", start, end);
+
 
     // Quickselect from dist_copy matrix
     float* dist_copy = malloc( (end-start) * pointsPerProc * sizeof(float));
+
     for (int i = 0; i < (end-start) * pointsPerProc; i++){
-        dist_copy[start * pointsPerProc + i] = distances[start * pointsPerProc + i];
+        dist_copy[i] = distances[start * pointsPerProc + i];
     }
 
-    float median = quickselect(dist_copy, pointsTotal-1);
+    float median = quickselect(dist_copy, (end-start)*pointsPerProc-1);
 
     // Swap unwanted points in place. For each distance greater than median on the left half
     // find a smaller one on the right side and swap the corresponding points.
     // Also swap the distances to avoid recalculations.
     // Essentially for (half the points)
-    int right = (end - start) / 2 * pointsPerProc;
+    int right = (end-start)/2*pointsPerProc;
     for (int i = 0; i < (end-start) * pointsPerProc / 2; i++){
         
-        // larger value found on the left half
-        if(distances[start * pointsPerProc + i] > median){
+        // Larger value found on the left half
+        if(distances[start*pointsPerProc + i] > median){
             
             // as long as small value is not found 
-            // look at the next index
+            // on right half look at the next index
             while(distances[right] > median){
                 right++;
             }
             
-            //once smaller distance is found we will exit and swap distances and points
-            swapFloat(distances, start * pointsPerProc + i, right, 1);
+            // Once smaller distance is found we will exit and swap distances and points
+            printf("Swapping %f  with %f \n", distances[start*pointsPerProc + i], distances[right]);
+            swapFloat(distances, start*pointsPerProc + i, right, 1);
 
             //Not sure about this one, not checked!!! Prob about right
-            swapFloat(points, (start * pointsPerProc + i) * dims, right * dims, dims);
+           // swapFloat(points, (start*pointsPerProc + i)*dims, right*dims, dims);
 
 
         }
@@ -159,9 +162,19 @@ void distributebyMedian(float* points, float* distances, long dims, long pointsP
      
     // For now let's say start and end will refere to "process"
     // e.g. looking at left leafs for 8 procs (0,8)->(0,4)->(0,2)->(0,1)=return;
+    
+    //Recursion split is good
+    if(end-start == 2){
+        //printf("Returning for Start = %d End = %d\n", start, end);
+        return;
+    } 
 
-    //distributebyMedian(points, distances, dims, pointsPerProc, pointsTotal, start,  end/2);
-    //distributebyMedian(points, distances, dims, pointsPerProc, pointsTotal, end/2,  end);
+    for (int i = 0; i < pointsTotal; i++){
+        printf("%f ", distances[i]);        
+    }
+
+    distributebyMedian(points, distances, dims, pointsPerProc, pointsTotal, start,  start+(end-start)/2);
+    distributebyMedian(points, distances, dims, pointsPerProc, pointsTotal, start+(end-start)/2,  end);
 }
 
 
@@ -178,7 +191,7 @@ int main(int argc, char **argv) {
     fread(&pointsTotal, sizeof(long), 1, file);
 
     // Split the points evenly between each process.    
-    int pointsPerProc = 150; // set the points per process to 100
+    int pointsPerProc = 4; // set the points per process to 100
     
     int processes =  atoi(argv[1]);
     
@@ -207,10 +220,12 @@ int main(int argc, char **argv) {
 	// Recursive part
     distributebyMedian(points, distances, dims, pointsPerProc, pointsTotal, 0, processes);
     
+    printf("\n\n");
     for (int i = 0; i < pointsTotal; i++){
-        distances[i] = calculateDistanceArray(points, i*dims, pivot, dims);
         printf("%f ", distances[i]);        
     }
+
+    
 
 
     return 0;
