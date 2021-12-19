@@ -314,45 +314,44 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
 }
 
 
-void checkForOrder(float *distances, float *personalMin, float *personalMax, float *nextMin, MPI_Win *window, 
-    process *p, bool *orders, bool *totalOrder, bool *outOfOrder)
+void checkForOrder(float *distances, float personalMin, float personalMax, float nextMin, MPI_Win window, 
+    process *p, bool *orders, bool totalOrder, bool outOfOrder, MPI_Comm comm)
 {
     if (p->comm_rank == 0) {
-        *personalMax = kthSmallest(distances, 0, p->pointsNum - 1, p->pointsNum - 1);
+        personalMax = kthSmallest(distances, 0, p->pointsNum - 1, p->pointsNum - 1);
     }
     else if (p->comm_rank == p->comm_size - 1) {
-        *personalMin = kthSmallest(distances, 0, p->pointsNum - 1, 0);
+        personalMin = kthSmallest(distances, 0, p->pointsNum - 1, 0);
     } else {
-        *personalMax = kthSmallest(distances, 0, p->pointsNum - 1, p->pointsNum - 1);
-        *personalMin = kthSmallest(distances, 0, p->pointsNum - 1, 0);
+        personalMax = kthSmallest(distances, 0, p->pointsNum - 1, p->pointsNum - 1);
+        personalMin = kthSmallest(distances, 0, p->pointsNum - 1, 0);
     }
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Win_create(&personalMin, sizeof(float), sizeof(float), MPI_INFO_NULL, MPI_COMM_WORLD, window);
-    MPI_Win_fence(0, *window);
+    MPI_Barrier(comm);
+    MPI_Win_fence(0, window);
 
     if (p->comm_rank != p->comm_size - 1) {
-        MPI_Get(nextMin, 1, MPI_FLOAT, p->comm_rank + 1, 0, 1, MPI_FLOAT, *window);
+        MPI_Get(&nextMin, 1, MPI_FLOAT, p->comm_rank + 1, 0, 1, MPI_FLOAT, window);
     }
 
-    MPI_Win_fence(0, *window);
+    MPI_Win_fence(0, window);
 
     if (p->comm_rank != p->comm_size - 1) {
-        if (*personalMax > *nextMin) {
-            *outOfOrder = true;
+        if (personalMax > nextMin) {
+            outOfOrder = true;
         }
     }
 
-    MPI_Gather(&outOfOrder, 1, MPI_C_BOOL, orders, 1, MPI_C_BOOL, 0, MPI_COMM_WORLD);
+    MPI_Gather(&outOfOrder, 1, MPI_C_BOOL, orders, 1, MPI_C_BOOL, 0, comm);
     if (p->comm_rank == 0) {
         for (int i = 0; i < p->comm_size; i++) {
             if (orders[i]) {
-               *totalOrder = false;
+                totalOrder = false;
                 break;
             }
         }
 
-        if(*totalOrder) {
+        if(totalOrder) {
             printf("\n\nSELF CHECK HAS FOUND THE PROCESSES TO BE IN ORDER.\n\n");
         } else {
             printf("\n\nTHE PROCESSES HAVE BEEN FOUND TO BE OUT OF ORDER.\n\n");

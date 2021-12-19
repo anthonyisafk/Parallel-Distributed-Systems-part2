@@ -17,7 +17,7 @@ void splitGroup(MPI_Comm *comm, MPI_Comm *new_comm, int *my_new_comm_rank, int *
 void distributeByMedian(int *unwantedMat, float *points, float *distances,
     process *p, float median, MPI_Comm comm); 
 
-void checkForOrder(float *distances, float *personalMin, float *personalMax, float *nextMin, MPI_Win *window, 
-    process *p, bool *orders, bool *totalOrder, bool *outOfOrder);
+void checkForOrder(float *distances, float personalMin, float personalMax, float nextMin, MPI_Win window, 
+    process *p, bool *orders, bool totalOrder, bool outOfOrder, MPI_Comm comm);
 
 #endif

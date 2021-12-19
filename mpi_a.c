@@ -145,6 +145,7 @@ int main(int argc, char **argv) {
     float personalMin, personalMax;
     float nextMin;
     MPI_Win window;
+    MPI_Win_create(&personalMin, sizeof(float), sizeof(float), MPI_INFO_NULL, MPI_COMM_WORLD, &window);
 
     // The flag a process raises if its personalMax is larger than the next personalMin.
     bool outOfOrder = false;
@@ -154,20 +155,19 @@ int main(int argc, char **argv) {
         orders = (bool *) malloc(comm_size * sizeof(bool));
     }
 
-    // checkForOrder(distances, &personalMin, &personalMax, &nextMin, &window, &proc, orders, &totalOrder, &outOfOrder);
+    // checkForOrder(distances, personalMin, personalMax, nextMin, window, &proc, orders, totalOrder, outOfOrder, MPI_COMM_WORLD);
 
     if (comm_rank == 0) {
-        personalMax = kthSmallest(distances, 0, proc.pointsNum - 1, proc.pointsNum - 1);
+        personalMax = kthSmallest(distances, 0, pointsNum - 1, pointsNum - 1);
     }
     else if (comm_rank == comm_size - 1) {
-        personalMin = kthSmallest(distances, 0, proc.pointsNum - 1, 0);
+        personalMin = kthSmallest(distances, 0, pointsNum - 1, 0);
     } else {
-        personalMax = kthSmallest(distances, 0, proc.pointsNum - 1, proc.pointsNum - 1);
-        personalMin = kthSmallest(distances, 0, proc.pointsNum - 1, 0);
+        personalMax = kthSmallest(distances, 0, pointsNum - 1, pointsNum - 1);
+        personalMin = kthSmallest(distances, 0, pointsNum - 1, 0);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Win_create(&personalMin, sizeof(float), sizeof(float), MPI_INFO_NULL, MPI_COMM_WORLD, &window);
     MPI_Win_fence(0, window);
 
     if (comm_rank != comm_size - 1) {
