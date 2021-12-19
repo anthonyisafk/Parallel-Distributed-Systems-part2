@@ -254,7 +254,7 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
 
                     // Send only as many points as both processes can handle.
                     toTrade = (unwantedMat[p->comm_rank] <= unwantedMat[i]) ? unwantedMat[p->comm_rank] : unwantedMat[i]; 
-                    printf("Proc %d paired with proc %d to trade %d elements\n", p->comm_rank, i, toTrade);
+                    // printf("Proc %d paired with proc %d to trade %d elements\n", p->comm_rank, i, toTrade);
                     break;
                 }
             }
