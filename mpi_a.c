@@ -211,7 +211,7 @@ int main(int argc, char **argv) {
         if(totalOrder) {
             printf("\n\nSELF CHECK HAS FOUND THE PROCESSES TO BE IN ORDER.\n\n");
         } else {
-            printf("\n\nTHE PROCESSES HAVE BEEN FOUND TO BE OUT OF ORDER.\n\n");
+            printf("\n\nERROR ERROR ERROR ERROR ERROR.\n\n");
         }
     }
 
