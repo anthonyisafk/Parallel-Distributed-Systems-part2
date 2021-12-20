@@ -9,7 +9,7 @@ _distributeByMedian_ was composed to function recursively, leading to each proce
 First and foremost, we needed a dataset that would be large enough to give us valuable insight into the algorithm, but also enable us to work with it locally, without the need to actually make the algorithm distributed (even though it is already obvious that MPI works that way and no spaces of memory are shared between processes). That dataset was selected to be **_MNIST_**.
 \
 As taken from the [DeepAI reference:](https://deepai.org/dataset/mnist)
-The MNIST database, an extension of the NIST database, is a low-complexity data collection of handwritten digits used to train and test various supervised machine learning algorithms. The database contains 70,000 28x28 black and white images representing the digits zero through nine. To obtain the points we unfolded each image into a vector of length 784.
+The MNIST database, an extension of the NIST database, is a low-complexity data collection of handwritten digits used to train and test various supervised machine learning algorithms. The database contains 70,000 28x28-pixel black and white images representing the digits zero through nine. To obtain the points we unfolded each image into a vector of length 784.
 \
 \
 This means we had to work with approximately 70000 points (more on the exact number of points later on) of 784 dimensions. After having done that, it was time for us to organize our algorithm.
