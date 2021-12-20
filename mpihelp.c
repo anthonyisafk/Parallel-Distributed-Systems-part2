@@ -53,6 +53,7 @@ void bcast_pivot(process *p, float *pivot, float *points) {
     // Pick a pivot and broadcast it 
     if (p->comm_rank == 0) {
         int pivotIndex = rand() % p->pointsNum;
+        // int pivotIndex = 238; // check for indices that are known to have broken the algo.
         printf("Pivot index is %d\n", pivotIndex);
 
         for (int i = 0; i < p->dims; i++) {
@@ -64,44 +65,14 @@ void bcast_pivot(process *p, float *pivot, float *points) {
 
 
 /**
- * 1 if the point should be kept,
- * 0 if distance is equal to median,
- * -1 if the point is to be gotten rid of.
- * *******************
- * @param right_half: Updated the function to sort the elements based on what each
- * process wants to get rid of. The first half of the processes sort elements so that
- * the values larger than the median are first and the other half prioritizes
- * having the smaller values first.
- */
-
- //TO DO: add communicator parameters since it will be different for each recursive step 
-int findUnwantedPoints (int *isUnwanted, float *distances, process *p, float median) {
-    // Multiply by -1 if the process is looking for small elements to send out.
-    int right_half = (p->comm_rank + 1 > p->comm_size / 2) ? -1 : 1;  
-    int unwantedNum = 0;
-    for (long i = 0; i < p->pointsNum; i++) {
-        if (right_half * distances[i] < right_half * median) {
-            isUnwanted[i] = 1;
-        } 
-        else if (distances[i] == median) {
-            isUnwanted[i] = 0;
-            unwantedNum++;
-        }
-        else {
-            isUnwanted[i] = -1;
-            unwantedNum++;
-        }
-    }
-
-    return unwantedNum;
-}
-
-
-/**
  * Sorts an array depending on the median value.
  * The algorithm basically sorts the left side of the array,
  * while the right side takes care of itself during the execution.
  * Also swap the values between the helping array points.
+ * **************************************************************
+ * The algorithm now shifts all the median values to the rightmost part
+ * of the array, to be sent last, prioritizing getting rid of the 
+ * greater values first.
  */ 
 
 int *sortByMedian(float *array, float *points, float median, process *p) {
@@ -148,6 +119,7 @@ int *sortByMedian(float *array, float *points, float median, process *p) {
         printf("median = %f\n", median);
     }
 
+    // Gradually shift every median to the end.
     for (int i = 0 ; i < center + 1 - left; i++) {
         swapFloat(array, p->pointsNum - i - 1, right - i - 1, 1);
         swapFloat(points, (p->pointsNum - i - 1) * p->dims, (right - i - 1) * p->dims, p->dims);
@@ -188,7 +160,7 @@ void splitGroup(MPI_Comm *comm, MPI_Comm *new_comm, int *my_new_comm_rank, int *
 
 
 // Finds the new median after a group of processes has been sorted and split.
-void findNewMedian(float *points, int *unwantedMat, float *distances, float *dist_array,
+void findNewMedian(float *points, int *unwantedMat, float *distances, float *dist_array, bool *sortedMat,
     float median, MPI_Comm new_comm, process *p) 
 {
     for (int i = 0; i < p->pointsNum; i++) {
@@ -207,6 +179,7 @@ void findNewMedian(float *points, int *unwantedMat, float *distances, float *dis
     // Broadcast median.
     MPI_Bcast(&median, 1, MPI_FLOAT, 0, new_comm);
 
+    sortedMat = realloc(sortedMat, p->comm_size * sizeof(bool));
     unwantedMat = (int *) realloc(unwantedMat ,p->comm_size * sizeof(int));
     int *newSortedByMedian = sortByMedian(distances, points, median, p);
 
@@ -216,9 +189,11 @@ void findNewMedian(float *points, int *unwantedMat, float *distances, float *dis
 }
 
 
-void distributeByMedian(int *unwantedMat, float *points, float *distances, process *p, float median, MPI_Comm comm) {
+void distributeByMedian(int *unwantedMat, float *points, float *distances, process *p,
+    float median, MPI_Comm comm, bool *sortedMat) 
+{
     // End of recursion.
-    if(p->comm_size == 1){
+    if (p->comm_size == 1) {
         printf("All points are sorted! \n");
         return;
     }
@@ -236,7 +211,11 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
     int posScanStart = (left_half) ? 0 : p->comm_size / 2; 
     int posScanEnd = p->comm_rank + 1;
 
+    // "Are my points sorted?"
     bool sorted = false;
+    // "Are everyone's points sorted?"
+    bool allsorted = false;
+    
     int round = 0;
     while(!sorted) {
         if (unwantedMat[p->comm_rank] != 0) {
@@ -294,6 +273,8 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
             }
         }
 
+        // Print the matrix of unwanted points in case a group of processes 
+        // has taken too long to get sorted.
         if (round > 1000 && unwantedMat[p->comm_rank] != 0) {
             printf("\n\nINFINITE LOOOP\n\n");
             
@@ -303,29 +284,62 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
             }
             printf("\n");
         } 
-        if (round > 1000) return;
+
+        // If I am the process that is unsorted, trick the algorithm into
+        // thinking it's done with.
+        if (round > 1000) {
+            sorted = true;
+        }
         round++;
     }
 
-    // --------------- SPLIT INTO TWO HALVES --------------- //
-
-    MPI_Comm new_comm;
-    int my_new_comm_rank, my_new_comm_size;
-    int colour, key;
-
-    splitGroup(&comm, &new_comm, &my_new_comm_rank, &my_new_comm_size, colour, key, p);
-
-    // --------------- RECALCULATE DISTANCES AND UNWANTED PONTS --------------- //
-
-    float *dist_array = NULL;
-    if (p->comm_rank == 0) {
-        dist_array = (float *) malloc(p->pointsNum * p->comm_size * sizeof(float));
+    // The process that 'lied' turns the sorted value to false again,
+    // in order to broadcast it to the rest of the group.
+    if (round > 1000) {
+        sorted = false;
     }
-    findNewMedian(points, unwantedMat, distances, dist_array, median, new_comm, p);
 
-    // --------------- CALL THE RECURSION --------------- //
+    MPI_Allgather(&sorted, 1, MPI_C_BOOL, sortedMat, 1, MPI_C_BOOL, comm);
+    for (int i = 0; i < p->comm_size; i++) {
+        if (!sortedMat[i]) {
+            allsorted = false;
+            break;
+        } else {
+            allsorted = true;
+        }
+    }
 
-    distributeByMedian(unwantedMat, points, distances, p, median, new_comm);
+    // See if everyone is sorted. If yes, split into two groups and move on.
+    // Elsewise, sort points again and re-enter distributeByMedian.
+    if (allsorted) {
+        // --------------- SPLIT INTO TWO HALVES --------------- //
+
+        MPI_Comm new_comm;
+        int my_new_comm_rank, my_new_comm_size;
+        int colour, key;
+
+        splitGroup(&comm, &new_comm, &my_new_comm_rank, &my_new_comm_size, colour, key, p);
+
+        // --------------- RECALCULATE DISTANCES AND UNWANTED PONTS --------------- //
+
+        float *dist_array = NULL;
+        if (p->comm_rank == 0) {
+            dist_array = (float *) malloc(p->pointsNum * p->comm_size * sizeof(float));
+        }
+        findNewMedian(points, unwantedMat, distances, dist_array, sortedMat, median, new_comm, p);
+
+        // --------------- CALL THE RECURSION --------------- //
+
+        distributeByMedian(unwantedMat, points, distances, p, median, new_comm, sortedMat);
+    } else {
+        float *dist_array = NULL;
+        if (p->comm_rank == 0) {
+            dist_array = (float *) malloc(p->pointsNum * p->comm_size * sizeof(float));
+        }
+
+        findNewMedian(points, unwantedMat, distances, dist_array, sortedMat, median, comm, p);
+        distributeByMedian(unwantedMat, points, distances, p, median, comm, sortedMat);
+    }
 }
 
 #endif

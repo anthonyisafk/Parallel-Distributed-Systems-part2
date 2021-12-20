@@ -135,8 +135,8 @@ int main(int argc, char **argv) {
 
     // ---------- START TESTING DISRIBUTEBYMEDIAN ---------- //
 
-    
-    distributeByMedian(unwantedMat, points, distances, &proc, median, MPI_COMM_WORLD);
+    bool *sortedMat = (bool *) malloc(comm_size * sizeof(bool));
+    distributeByMedian(unwantedMat, points, distances, &proc, median, MPI_COMM_WORLD, sortedMat);
     
     MPI_Barrier(MPI_COMM_WORLD);
     if(comm_rank == 0){
