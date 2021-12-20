@@ -172,8 +172,6 @@ int main(int argc, char **argv) {
         orders = (bool *) malloc(comm_size * sizeof(bool));
     }
 
-    //checkForOrder(distances, personalMin, personalMax, nextMin, window, &proc, orders, totalOrder, outOfOrder, MPI_COMM_WORLD);
-
     if (comm_rank == 0) {
         personalMax = kthSmallest(distances, 0, pointsNum - 1, pointsNum - 1);
     }
@@ -214,10 +212,7 @@ int main(int argc, char **argv) {
             printf("\n\nERROR ERROR ERROR ERROR ERROR.\n\n");
         }
     }
-
     
 	MPI_Finalize();
-    
-    
 	return 0;
 }

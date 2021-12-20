@@ -128,7 +128,7 @@ int *sortByMedian(float *array, float *points, float median, process *p) {
         else if (right_half * array[i] > right_half * median) {
             // Only do the swap if value doesn't belong in the
             // rightmost set.
-            if (right_half * array[right - 1] <= right_half * median) {
+            if (right_half * array[right - 1] < right_half * median) {
                 swapFloat(array, i, right - 1, 1);
                 swapFloat(points, i * p->dims, (right - 1) * p->dims, p->dims);
             }
@@ -143,22 +143,15 @@ int *sortByMedian(float *array, float *points, float median, process *p) {
 
     // Swap the last median with the last right 
     // Just a playa playing
-    if(center+1-left !=0){
+    if (center + 1 - left != 0) {
         printf("dist[right-1] = %f\n", array[right-1]);
         printf("median = %f\n", median);
     }
 
-    for(int i = 0 ; i < center+1-left; i++){
-        swapFloat(array, p->pointsNum-i-1, right - i-1, 1);
-        swapFloat(points, (p->pointsNum-i-1) * p->dims, (right - i-1) * p->dims, p->dims);
+    for (int i = 0 ; i < center + 1 - left; i++) {
+        swapFloat(array, p->pointsNum - i - 1, right - i - 1, 1);
+        swapFloat(points, (p->pointsNum - i - 1) * p->dims, (right - i - 1) * p->dims, p->dims);
     }
-    // if(center+1-left !=0){
-    //     // Last element <-> last median
-    //     swapFloat(array, p->pointsNum-1, right - 1, 1);
-    //     swapFloat(points, (p->pointsNum-1) * p->dims, (right - 1) * p->dims, p->dims);
-    // }
-
-
 
     int *result = (int *) malloc(3 * sizeof(int));
     // Return the number of unwanted points, aka unwantedNum.
@@ -301,15 +294,7 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
             }
         }
 
-        // Style points
-        // if (p->comm_rank == 0) {
-        //     printf("\nUnwantedMat round %d:\n", round);
-        //     for (int i = 0; i < p->comm_size; i++) {
-        //         printf("%d ", unwantedMat[i]);
-        //     }
-        //     printf("\n");
-        // }
-        if(round > 1000 && unwantedMat[p->comm_rank] != 0){
+        if (round > 1000 && unwantedMat[p->comm_rank] != 0) {
             printf("\n\nINFINITE LOOOP\n\n");
             
             printf("\nUnwantedMat round %d:\n", round);
@@ -318,7 +303,7 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
             }
             printf("\n");
         } 
-        if(round > 1000) return;
+        if (round > 1000) return;
         round++;
     }
 
@@ -341,52 +326,6 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
     // --------------- CALL THE RECURSION --------------- //
 
     distributeByMedian(unwantedMat, points, distances, p, median, new_comm);
-}
-
-
-void checkForOrder(float *distances, float personalMin, float personalMax, float nextMin, MPI_Win window, 
-    process *p, bool *orders, bool totalOrder, bool outOfOrder, MPI_Comm comm)
-{
-    if (p->comm_rank == 0) {
-        personalMax = kthSmallest(distances, 0, p->pointsNum - 1, p->pointsNum - 1);
-    }
-    else if (p->comm_rank == p->comm_size - 1) {
-        personalMin = kthSmallest(distances, 0, p->pointsNum - 1, 0);
-    } else {
-        personalMax = kthSmallest(distances, 0, p->pointsNum - 1, p->pointsNum - 1);
-        personalMin = kthSmallest(distances, 0, p->pointsNum - 1, 0);
-    }
-
-    MPI_Barrier(comm);
-    MPI_Win_fence(0, window);
-
-    if (p->comm_rank != p->comm_size - 1) {
-        MPI_Get(&nextMin, 1, MPI_FLOAT, p->comm_rank + 1, 0, 1, MPI_FLOAT, window);
-    }
-
-    MPI_Win_fence(0, window);
-
-    if (p->comm_rank != p->comm_size - 1) {
-        if (personalMax > nextMin) {
-            outOfOrder = true;
-        }
-    }
-
-    MPI_Gather(&outOfOrder, 1, MPI_C_BOOL, orders, 1, MPI_C_BOOL, 0, comm);
-    if (p->comm_rank == 0) {
-        for (int i = 0; i < p->comm_size; i++) {
-            if (orders[i]) {
-                totalOrder = false;
-                break;
-            }
-        }
-
-        if(totalOrder) {
-            printf("\n\nSELF CHECK HAS FOUND THE PROCESSES TO BE IN ORDER.\n\n");
-        } else {
-            printf("\n\nTHE PROCESSES HAVE BEEN FOUND TO BE OUT OF ORDER.\n\n");
-        }
-    }
 }
 
 #endif
