@@ -103,8 +103,6 @@ int findUnwantedPoints (int *isUnwanted, float *distances, process *p, float med
  * while the right side takes care of itself during the execution.
  * Also swap the values between the helping array points.
  */ 
-
- //TO DO: add communicator parameters since it will be different for each recursive step 
 int *sortByMedian(float *array, float *points, float median, process *p) {
     // Multiply by -1 if the process is looking for small elements to send out.
     int right_half = (p->comm_rank + 1 > p->comm_size / 2) ? -1 : 1; 
@@ -115,15 +113,14 @@ int *sortByMedian(float *array, float *points, float median, process *p) {
 	long right = p->pointsNum;
     // The index of the leftmost side that is sorted.
 	long left = 0;
-    // Keeps track of the last median encountered.
-	long center = -1;                    
+    // Medians will be appended to the end 
+	long med = p->pointsNum-1;                  
     while (i != right) {
         if (right_half * array[i] < right_half * median) {
             swapFloat(array, i, left, 1);
             swapFloat(points, i * p->dims, left * p->dims, p->dims);
             
             left++;
-            center++;
             i++;
         }
         else if (right_half * array[i] > right_half * median) {
@@ -135,19 +132,24 @@ int *sortByMedian(float *array, float *points, float median, process *p) {
             }
             right--;
         } else {
-            center++;
-            i++;
+            // Experimental !!! Sometimes breaks the programm for unknown cause
+            // Swap with the last element
+            printf("Found median at %ld swapping with %ld\n", i, med);
+            // Put median at the end 
+            // Do not disturb right index !
+            swapFloat(array, i, med, 1);
+            swapFloat(points, i * p->dims, med * p->dims, p->dims);
+            med--; 
         }
     }
+    
+    // It has been observed that medians are very rarely obsrved
+    // more coming up..
 
     int *result = (int *) malloc(3 * sizeof(int));
     // Return the number of unwanted points, aka unwantedNum.
     // Also including elements that are equal to the median for now.
     result[0] = p->pointsNum - left;
-    // Return the number of points equal to the median.
-    result[1] = center + 1 - left;
-    // Return the index of the first median.
-    result[2] = (result[1]) ? left : -1;
 
     return result;
 }
@@ -289,8 +291,8 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
         //     }
         //     printf("\n");
         // }
-        if(round > 1000){
-            printf("Infinite loop found");
+        if(round > 100){
+            printf("Infinite loop found\n\n");
             return;
         } 
         round++;
