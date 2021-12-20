@@ -110,7 +110,7 @@ float quickselect(float *distances, uint end) {
 		float mid1 = kthSmallest(distances, 0, end, mid_index - 1);
 		float mid2 = kthSmallest(distances, 0, end, mid_index);
 		
-		printf("mid1 = %f, mid2 = %f\n", mid1, mid2);
+		//printf("mid1 = %f, mid2 = %f\n", mid1, mid2);
 
 	
 		return (float) ((mid1 + mid2) / 2);

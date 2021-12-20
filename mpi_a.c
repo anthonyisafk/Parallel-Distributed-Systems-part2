@@ -30,6 +30,7 @@
 
 
 int main(int argc, char **argv) {
+
 	int comm_size, comm_rank;
     MPI_Status *mpi_stat101;
     MPI_Request *mpi_req101;
@@ -71,7 +72,13 @@ int main(int argc, char **argv) {
     // Split the data from the binary file into processes.
     split_into_processes(file, &proc, points);
 
-    // Select and broadcast pivot.
+    
+    // Select and broadcast pivot. 
+    // Also start timing.
+    MPI_Barrier(MPI_COMM_WORLD);
+    double start = MPI_Wtime();
+    
+
     bcast_pivot(&proc, pivot, points);
     for(int i = 0; i < dims; i++) {
         proc.pivot[i] = pivot[i];
@@ -97,12 +104,11 @@ int main(int argc, char **argv) {
         // }
 
         median = quickselect(dist_arr, pointsNum * comm_size - 1);
-        printf("\nMedian distance is %f\n\n", median);
+        //printf("\nMedian distance is %f\n\n", median);
     }
 
     // Broadcast median.
     MPI_Bcast(&median, 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
-    MPI_Barrier(MPI_COMM_WORLD);
 
     // Calculate number of unwanted points and gather all data to all processes.
     // This is the least amount of information needed to complete the transfers.
@@ -129,9 +135,20 @@ int main(int argc, char **argv) {
 
     // ---------- START TESTING DISRIBUTEBYMEDIAN ---------- //
 
+    
     distributeByMedian(unwantedMat, points, distances, &proc, median, MPI_COMM_WORLD);
+    
     MPI_Barrier(MPI_COMM_WORLD);
-
+    if(comm_rank == 0){
+        double end = MPI_Wtime();
+        printf("\n\n Distribute took %f seconds\n", end-start);
+        FILE *fp;
+        fp = fopen("results.txt", "a");
+        fprintf(fp, "%f\n", end-start);
+        fclose(fp);
+    }
+    
+    
     // if (comm_rank == 2 || comm_rank == comm_size - 2) {
     //     printf("Distances after sortByMedian for process #%d\n", comm_rank);
     //     for (int i = 0; i < pointsNum; i++) {
@@ -155,7 +172,7 @@ int main(int argc, char **argv) {
         orders = (bool *) malloc(comm_size * sizeof(bool));
     }
 
-    // checkForOrder(distances, personalMin, personalMax, nextMin, window, &proc, orders, totalOrder, outOfOrder, MPI_COMM_WORLD);
+    //checkForOrder(distances, personalMin, personalMax, nextMin, window, &proc, orders, totalOrder, outOfOrder, MPI_COMM_WORLD);
 
     if (comm_rank == 0) {
         personalMax = kthSmallest(distances, 0, pointsNum - 1, pointsNum - 1);
@@ -198,6 +215,9 @@ int main(int argc, char **argv) {
         }
     }
 
+    
 	MPI_Finalize();
+    
+    
 	return 0;
 }

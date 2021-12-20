@@ -189,7 +189,7 @@ void findNewMedian(float *points, int *unwantedMat, float *distances, float *dis
 
     if (p->comm_rank == 0) {
         median = quickselect(dist_array, p->pointsNum * p->comm_size - 1);
-        printf("\nMedian distance is %f\n\n", median);
+        //printf("\nMedian distance is %f\n\n", median);
     }
     // Broadcast median.
     MPI_Bcast(&median, 1, MPI_FLOAT, 0, new_comm);
@@ -282,13 +282,17 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
         }
 
         // Style points
-        if (p->comm_rank == 0) {
-            printf("\nUnwantedMat round %d:\n", round);
-            for (int i = 0; i < p->comm_size; i++) {
-                printf("%d ", unwantedMat[i]);
-            }
-            printf("\n");
-        }
+        // if (p->comm_rank == 0) {
+        //     printf("\nUnwantedMat round %d:\n", round);
+        //     for (int i = 0; i < p->comm_size; i++) {
+        //         printf("%d ", unwantedMat[i]);
+        //     }
+        //     printf("\n");
+        // }
+        if(round > 1000){
+            printf("Infinite loop found");
+            return;
+        } 
         round++;
     }
 
