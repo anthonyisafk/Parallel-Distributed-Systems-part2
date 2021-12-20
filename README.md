@@ -38,7 +38,7 @@ During the first call of the function, each process finds its position in the si
 Now that every process holds a new set of points, `comm_rank` and `comm_size`, it calculates the new distances and re-enters distributeByMedian with the new group median the `findNewMedian` function provided it with. The iterations stop when the new `comm_size == 1`. We then know that every process has been assigned its final points.
 
 ## Self-checking
-Now that the points are supposedly sorted, we have to perform a self check to make sure our thought process brought about the correct result. It is easy to prove that the validity of the algorithm can be confirmed if each process compares its local maximum with the next process's local minimum. If the maximun is smaller or equal to the next minimum, we know we managed to sort the points as required.
+Once the points are sorted, we have to perform a self check to make sure the algorithm yielded the correct result. It is easy to prove that the validity of the algorithm can be confirmed by comparing each process's maximum distance with the next process's minimum. If the maximun is smaller or equal to the next minimum, we know we managed to sort the points as required.
 \
 \
 This was realized by using the `MPI Window` methods, that require little to no synchronization and enables a process to peek at someone else's local chunks of memory without `MPI_Send` and `MPI_Recv`
