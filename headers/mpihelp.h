@@ -14,6 +14,6 @@ void findNewMedian(float *points, int *unwantedMat, float *distances, float *dis
 void splitGroup(MPI_Comm *comm, MPI_Comm *new_comm, int *my_new_comm_rank, int *my_new_comm_size,
     int colour, int key, process *p);
 void distributeByMedian(int *unwantedMat, float *points, float *distances,
-    process *p, float median, MPI_Comm comm, bool *sortedMat); 
+    process *p, float median, MPI_Comm comm, bool *sortedMat, int inft); 
 
 #endif

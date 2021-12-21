@@ -190,7 +190,7 @@ void findNewMedian(float *points, int *unwantedMat, float *distances, float *dis
 
 
 void distributeByMedian(int *unwantedMat, float *points, float *distances, process *p,
-    float median, MPI_Comm comm, bool *sortedMat) 
+    float median, MPI_Comm comm, bool *sortedMat, int inft) 
 {
     // End of recursion.
     if (p->comm_size == 1) {
@@ -275,7 +275,7 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
 
         // Print the matrix of unwanted points in case a group of processes 
         // has taken too long to get sorted.
-        if (round > 1000 && unwantedMat[p->comm_rank] != 0) {
+        if (round > 50 && unwantedMat[p->comm_rank] != 0) {
             printf("\n\nINFINITE LOOOP\n\n");
             
             printf("\nUnwantedMat round %d:\n", round);
@@ -287,7 +287,7 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
 
         // If I am the process that is unsorted, trick the algorithm into
         // thinking it's done with.
-        if (round > 1000) {
+        if (round > 50) {
             sorted = true;
         }
         round++;
@@ -295,7 +295,7 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
 
     // The process that 'lied' turns the sorted value to false again,
     // in order to broadcast it to the rest of the group.
-    if (round > 1000) {
+    if (round > 50) {
         sorted = false;
     }
 
@@ -311,7 +311,7 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
 
     // See if everyone is sorted. If yes, split into two groups and move on.
     // Elsewise, sort points again and re-enter distributeByMedian.
-    if (allsorted) {
+    if (allsorted || inft==1) {
         // --------------- SPLIT INTO TWO HALVES --------------- //
 
         MPI_Comm new_comm;
@@ -330,15 +330,15 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
 
         // --------------- CALL THE RECURSION --------------- //
 
-        distributeByMedian(unwantedMat, points, distances, p, median, new_comm, sortedMat);
-    } else {
+        distributeByMedian(unwantedMat, points, distances, p, median, new_comm, sortedMat, 0);
+    } else{
         float *dist_array = NULL;
         if (p->comm_rank == 0) {
             dist_array = (float *) malloc(p->pointsNum * p->comm_size * sizeof(float));
         }
 
         findNewMedian(points, unwantedMat, distances, dist_array, sortedMat, median, comm, p);
-        distributeByMedian(unwantedMat, points, distances, p, median, comm, sortedMat);
+        distributeByMedian(unwantedMat, points, distances, p, median, comm, sortedMat, 1);
     }
 }
 
