@@ -190,7 +190,7 @@ void findNewMedian(float *points, int *unwantedMat, float *distances, float *dis
 
 
 void distributeByMedian(int *unwantedMat, float *points, float *distances, process *p,
-    float median, MPI_Comm comm, bool *sortedMat, int inft) 
+    float median, MPI_Comm comm, bool *sortedMat, int pseudo) 
 {
     // End of recursion.
     if (p->comm_size == 1) {
@@ -311,7 +311,7 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
 
     // See if everyone is sorted. If yes, split into two groups and move on.
     // Elsewise, sort points again and re-enter distributeByMedian.
-    if (allsorted || inft==1) {
+    if (allsorted || pseudo==1) {
         // --------------- SPLIT INTO TWO HALVES --------------- //
 
         MPI_Comm new_comm;
@@ -338,6 +338,9 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
         }
 
         findNewMedian(points, unwantedMat, distances, dist_array, sortedMat, median, comm, p);
+
+        // Distribute by median is called with psuedo = 1 to indicate that this call is not the
+        // This prevents infinite loops where medians are traded
         distributeByMedian(unwantedMat, points, distances, p, median, comm, sortedMat, 1);
     }
 }
