@@ -37,10 +37,29 @@ During the first call of the function, each process finds its position in the si
 \
 Now that every process holds a new set of points, `comm_rank` and `comm_size`, it calculates the new distances and re-enters distributeByMedian, with the new group median the `findNewMedian` function provided it with. The iterations stop when the new `comm_size == 1`. We then know that every process has been assigned its final points.
 
+## Troubleshooting during sorting
+It was quite often that the processes had an extra unwaanted element to give away, while everybosy else seemed to be sorted, breaking the code or bringing the algorithm to a halt. We found that this element was merely a point with a distance from the pivot that was equal to the median value. So we solved this challenge by adding some extra checks on `distributeByMedian`. A group of processes that reached 100 _rounds_ was given the `sorted flag`. This enabled the whole group to self-check for unwanted elements again and iterate through the same repetition of the function. This proved to be sufficient for solving every problem that rose while testing.
+
 ## Self-checking
-Once the points are sorted, we have to perform a self check to make sure the algorithm yielded the correct result. It is easy to prove that the validity of the algorithm can be confirmed by comparing each process's maximum distance with the next process's minimum. If the maximun is smaller or equal to the next minimum, we know we managed to sort the points as required.
+Once the points are sorted, we have to perform a self check to make sure the algorithm yielded the correct result. It is easy to prove that the validity of the algorithm can be confirmed by comparing each process's maximum distance with the next process' minimum. If the maximum is smaller or equal to the next minimum, we know we managed to sort the points as required.
 \
 \
-This was implemented by using the `MPI Window` methods, that require little to no synchronization and enables a process to peek at someone else's local chunks of memory without `MPI_Send` and `MPI_Recv`
+This was implemented by using the `MPI Window` methods, that require little to no synchronization and enables a process to peek at someone else's local chunks of memory without `MPI_Send` and `MPI_Recv`.
+
+## Measurements - Conclusions
+
+### Local experiments
+Below are the experiments conducted locally for **2, 4, 8, 16, 32 and 64 processes**:
+\
+\
+![Local experiments](./output/local.jpeg)
+
+Right away, we can observe that time the execution time is almost linearly dependent on the number of processes. This is due to two factors:
+1. More processes mean more tasks working in parallel. The parallel speedup reaches a plateau about near the point where they exceed a PC's number of _logical cores_.
+2. They also mean more calculations per repetition and a greater recursion depth. 
+
+### Experiments on a distributed system
+For these experiments we used the University's HPC facilities.
+
 
 
