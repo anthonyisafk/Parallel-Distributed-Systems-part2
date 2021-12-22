@@ -311,7 +311,7 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
 
     // See if everyone is sorted. If yes, split into two groups and move on.
     // Elsewise, sort points again and re-enter distributeByMedian.
-    if (allsorted || pseudo==1) {
+    if (allsorted || pseudo == 1) {
         // --------------- SPLIT INTO TWO HALVES --------------- //
 
         MPI_Comm new_comm;
@@ -331,7 +331,7 @@ void distributeByMedian(int *unwantedMat, float *points, float *distances, proce
         // --------------- CALL THE RECURSION --------------- //
 
         distributeByMedian(unwantedMat, points, distances, p, median, new_comm, sortedMat, 0);
-    } else{
+    } else {
         float *dist_array = NULL;
         if (p->comm_rank == 0) {
             dist_array = (float *) malloc(p->pointsNum * p->comm_size * sizeof(float));

@@ -22,6 +22,7 @@
 #include <mpi.h>
 #include <math.h>
 #include <time.h>
+#include <string.h>
 #include <stdbool.h>
 
 #include "headers/process.h"
@@ -55,6 +56,7 @@ int main(int argc, char **argv) {
     if (comm_rank == 0) {
         file = fopen("data/mnist.bin", "rb");
     }
+
 
     // Assign the info[] values to new variables to make the code more coherent.
     bcast_dims_points(file, info, comm_rank, comm_size);
@@ -119,43 +121,25 @@ int main(int argc, char **argv) {
 
     MPI_Allgather(&unwantedNum, 1, MPI_INT, unwantedMat, 1, MPI_INT, MPI_COMM_WORLD);
 
-    // if (comm_rank == comm_size - 2) {
-    //     printf("Distances before sortByMedian for process #%d\n", comm_rank);
-    //     for (int i = 0; i < pointsNum; i++) {
-    //         printf("%f ", distances[i]);
-    //     }
-    //     printf("\n\n");
-
-    //     printf("\nUnwanted matrix\n");
-    //     for (int i = 0; i < comm_size; i++) {
-    //         printf("%d ", unwantedMat[i]);    
-    //     }    
-    //     printf("\n");  
-    // }
-
     // ---------- START TESTING DISRIBUTEBYMEDIAN ---------- //
 
     bool *sortedMat = (bool *) malloc(comm_size * sizeof(bool));
     distributeByMedian(unwantedMat, points, distances, &proc, median, MPI_COMM_WORLD, sortedMat, 0);
     
     MPI_Barrier(MPI_COMM_WORLD);
-    if(comm_rank == 0){
+    if (comm_rank == 0) {
         double end = MPI_Wtime();
         printf("\n\n Distribute took %f seconds\n", end-start);
+
+        char filename[20];
+        sprintf(filename, "results%d.txt", comm_size);
+
         FILE *fp;
-        fp = fopen("results.txt", "a");
+
+        fp = fopen(filename, "a");
         fprintf(fp, "%f\n", end-start);
         fclose(fp);
     }
-    
-    
-    // if (comm_rank == 2 || comm_rank == comm_size - 2) {
-    //     printf("Distances after sortByMedian for process #%d\n", comm_rank);
-    //     for (int i = 0; i < pointsNum; i++) {
-    //         printf("%f ", distances[i]);
-    //     }
-    //     printf("\n\n");
-    // }
 
     // Collect each process's minimum and maximum value, to compare them.
     // This algorithm self-checks for correct execution.
