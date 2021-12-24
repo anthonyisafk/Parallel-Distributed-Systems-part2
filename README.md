@@ -62,7 +62,14 @@ Right away, we can observe that time the execution time is almost linearly depen
 2. They also mean more calculations per repetition and a greater recursion depth. 
 
 ### Experiments on a distributed system
-For these experiments we used the University's HPC facilities.
+For these experiments we used the [University's HPC facilities](hpc.it.auth.gr).
+\
+\
+![HPC experiments](./output/hpc.jpeg)
 
+No significant conclusion can be made out of the graph above. We blame the minor fluctuations in execution times to the fact that the form of the data changes for various number of processes. This can be seen on the curve dedicated to _4 processes_. The selection of a different pivot point drastically changes the nature of the dataset. There could be more points producing distances equal to the media, or these values could produce asymmetric behavior that requires more time for the algorithm to end, since a round has to be repeated should an infinite loop is detected. Our explanation to the smaller variation in execution times is the fact that, on an HPC platform, each process has the resources and processing power of a full fledged computer and not just a logical core.
+
+### Extra - Linear execution
+We also composed an algorithm that acts like it's broken into processes but functions linearly, without the use of parallel programming tools.
 
 

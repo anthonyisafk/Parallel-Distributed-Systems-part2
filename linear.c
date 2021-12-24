@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
+#include <sys/time.h>
 #include <time.h>
 
 #define SWAP(x, y) { float temp = x; x = y; y = temp; }
@@ -129,7 +130,6 @@ float quickselect(float *distances, uint end) {
         printf("To kalo to palikari paei apo allo monopati\n");
 		return kthSmallest(distances, 0, end, mid_index);
 	}
-	
 }
 
 
@@ -188,6 +188,8 @@ void distributebyMedian(float* points, float* distances, long dims, long pointsP
 
 
 int main(int argc, char **argv) {
+    struct timeval stop, start;
+    gettimeofday(&start, NULL);
     
     srand((unsigned) time(NULL));
     FILE *file;
@@ -235,8 +237,18 @@ int main(int argc, char **argv) {
         //printf("%f ", distances[i]);        
     }
 
-    
+    gettimeofday(&stop, NULL);
 
+    float timediff = (stop.tv_sec * 1000000.0 + (float)stop.tv_usec - start.tv_sec * 1000000.0 - (float)start.tv_usec) / 1000000;
+    printf("\n\nLinear took %f seconds to run\n\n", timediff);
+
+    char filename[20];
+    sprintf(filename, "results%d.txt", processes);
+
+    FILE *fp;
+    fp = fopen(filename, "a");
+    fprintf(fp, "%f\n", timediff);
+    fclose(fp);
 
     return 0;
 }
