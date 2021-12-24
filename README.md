@@ -52,7 +52,7 @@ This was implemented by using the `MPI Window` methods, that require little to n
 ## Measurements - Conclusions
 
 ### Local experiments
-Below are the experiments conducted locally for **2, 4, 8, 16, 32 and 64 processes**:
+Below are the experiments conducted locally for **2, 4, 8, 16, 32 and 64 processes** using a processor with **16 logical cores**:
 \
 \
 ![Local experiments](./output/local.jpeg)
