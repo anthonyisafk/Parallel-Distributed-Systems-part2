@@ -70,6 +70,11 @@ For these experiments we used the [University's HPC facilities](hpc.it.auth.gr).
 No significant conclusion can be made out of the graph above. We blame the minor fluctuations in execution times to the fact that the form of the data changes for various number of processes. This can be seen on the curve dedicated to _4 processes_. The selection of a different pivot point drastically changes the nature of the dataset. There could be more points producing distances equal to the media, or these values could produce asymmetric behavior that requires more time for the algorithm to end, since a round has to be repeated should an infinite loop is detected. Our explanation to the smaller variation in execution times is the fact that, on an HPC platform, each process has the resources and processing power of a full fledged computer and not just a logical core.
 
 ### Extra - Linear execution
-We also composed an algorithm that acts like it's broken into processes but functions linearly, without the use of parallel programming tools.
+We also composed an algorithm that acts like it's broken into processes but functions linearly, without the use of parallel programming tools. This is what we found out:
+\
+\
+![Linear experiments](./output/linear.jpeg)
+
+It immediately becomes obvious that the asynchronous communication between processes (which is a phenomenon analogous on the process population) drastically hinders the performance during the execution of the MPI experiments locally.
 
 
