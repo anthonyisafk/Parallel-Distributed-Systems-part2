@@ -56,3 +56,6 @@ dkms.conf
 
 # The binary file
 data/mnist.bin
+
+# Pluto notebook file
+report.jl
