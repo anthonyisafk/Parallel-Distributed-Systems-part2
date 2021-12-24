@@ -12,7 +12,7 @@ As taken from the [DeepAI reference:](https://deepai.org/dataset/mnist)
 The MNIST database, an extension of the NIST database, is a low-complexity data collection of handwritten digits used to train and test various supervised machine learning algorithms. The database contains 70,000 28x28-pixel black and white images representing the digits zero through nine. To obtain the points we unfolded each image into a vector of length 784.
 \
 \
-This means we had to work with approximately 70000 points (more on the exact number of points later on) of 784 dimensions. After having done that, it was time for us to organize our algorithm.
+This means we had approximately 70000 points (more on the exact number of points later on) of 784 dimensions to work with. After having done that, it was time for us to organize our algorithm.
 
 ## Distributing the points
 We selected to read the maximum power of 2 total of points, to ensure compatibility and an even number of points for each process. Distributing the points was pretty straightforward.
